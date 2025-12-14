@@ -1,24 +1,48 @@
-*.log
-.DS_Store
-.env
-.env.backup
-.env.production
-.phpactor.json
-.phpunit.result.cache
-/.fleet
-/.idea
-/.nova
-/.phpunit.cache
-/.vscode
-/.zed
-/auth.json
+# Laravel
+/vendor
 /node_modules
-/public/build
 /public/hot
+/public/build
 /public/storage
 /storage/*.key
 /storage/pail
-/vendor
+/.phpunit.cache
+.phpunit.result.cache
 Homestead.json
 Homestead.yaml
+auth.json
+
+# Environment files
+.env
+.env.backup
+.env.production
+
+# IDE & Editor files
+/.idea
+/.vscode
+/.fleet
+/.nova
+/.zed
+.phpactor.json
+
+# OS files
+.DS_Store
 Thumbs.db
+*.log
+
+# Laravel compiled views (should be regenerated)
+/storage/framework/views/*.php
+/storage/framework/cache/data/*
+/storage/framework/sessions/*
+
+# Logs
+/storage/logs/*.log
+
+# NPM & Composer lock files (optional - some teams commit these)
+package-lock.json
+composer.lock
+
+# Laravel Mix / Vite
+/public/mix-manifest.json
+npm-debug.log
+yarn-error.log

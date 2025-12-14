@@ -1,0 +1,39 @@
+<?php
+
+namespace Database\Seeders;
+
+use App\Models\Language;
+use Illuminate\Database\Seeder;
+
+class LanguageSeeder extends Seeder
+{
+    public function run(): void
+    {
+        $languages = [
+            ['name' => 'English', 'code' => 'en', 'flag_emoji' => '🇺🇸'],
+            ['name' => 'Spanish', 'code' => 'es', 'flag_emoji' => '🇪🇸'],
+            ['name' => 'French', 'code' => 'fr', 'flag_emoji' => '🇫🇷'],
+            ['name' => 'German', 'code' => 'de', 'flag_emoji' => '🇩🇪'],
+            ['name' => 'Italian', 'code' => 'it', 'flag_emoji' => '🇮🇹'],
+            ['name' => 'Portuguese', 'code' => 'pt', 'flag_emoji' => '🇵🇹'],
+            ['name' => 'Chinese (Mandarin)', 'code' => 'zh', 'flag_emoji' => '🇨🇳'],
+            ['name' => 'Japanese', 'code' => 'ja', 'flag_emoji' => '🇯🇵'],
+            ['name' => 'Korean', 'code' => 'ko', 'flag_emoji' => '🇰🇷'],
+            ['name' => 'Arabic', 'code' => 'ar', 'flag_emoji' => '🇸🇦'],
+            ['name' => 'Russian', 'code' => 'ru', 'flag_emoji' => '🇷🇺'],
+            ['name' => 'Hindi', 'code' => 'hi', 'flag_emoji' => '🇮🇳'],
+            ['name' => 'Dutch', 'code' => 'nl', 'flag_emoji' => '🇳🇱'],
+            ['name' => 'Swedish', 'code' => 'sv', 'flag_emoji' => '🇸🇪'],
+            ['name' => 'Turkish', 'code' => 'tr', 'flag_emoji' => '🇹🇷'],
+            ['name' => 'Polish', 'code' => 'pl', 'flag_emoji' => '🇵🇱'],
+            ['name' => 'Indonesian', 'code' => 'id', 'flag_emoji' => '🇮🇩'],
+            ['name' => 'Thai', 'code' => 'th', 'flag_emoji' => '🇹🇭'],
+            ['name' => 'Vietnamese', 'code' => 'vi', 'flag_emoji' => '🇻🇳'],
+            ['name' => 'Greek', 'code' => 'el', 'flag_emoji' => '🇬🇷'],
+        ];
+
+        foreach ($languages as $language) {
+            Language::create($language);
+        }
+    }
+}

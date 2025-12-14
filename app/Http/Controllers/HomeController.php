@@ -2,79 +2,59 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Language;
+use App\Models\LearningRequest;
+use App\Models\PracticeSession;
+use App\Models\User;
 use Illuminate\Http\Request;
-use App\Models\Product;
-use App\Models\Category;
+use Illuminate\Support\Facades\Auth;
 
 class HomeController extends Controller
 {
-    /**
-     * Display the home page
-     */
     public function index()
     {
-        // Get featured products (high rated and in stock)
-        $featuredProducts = Product::with('category')
-            ->where('rating', '>=', 4.5)
-            ->where('stock', '>', 0)
-            ->orderBy('rating', 'desc')
-            ->take(6)
+        $languages = Language::where('is_active', true)->get();
+        $recentRequests = LearningRequest::with(['user', 'language'])
+            ->where('status', 'pending')
+            ->latest()
+            ->take(10)
             ->get();
 
-        // Get latest products
-        $latestProducts = Product::with('category')
-            ->orderBy('created_at', 'desc')
-            ->take(8)
-            ->get();
-
-        // Get categories with product count
-        $categories = Category::withCount('products')
-            ->orderBy('products_count', 'desc')
-            ->get();
-
-        // Get statistics
         $stats = [
-            'total_products' => Product::count(),
-            'total_categories' => Category::count(),
-            'average_rating' => number_format(Product::avg('rating'), 1),
-            'products_in_stock' => Product::where('stock', '>', 0)->count()
+            'total_sessions' => PracticeSession::count(),
+            'active_members' => 0,
+            'languages_available' => Language::where('is_active', true)->count(),
         ];
 
-        // Get top categories by product count
-        $topCategories = Category::withCount('products')
-            ->orderBy('products_count', 'desc')
-            ->take(4)
-            ->get();
-
-        // Get price ranges
-        $priceRanges = [
-            ['label' => 'Under Rp 100k', 'min' => 0, 'max' => 100000, 'count' => Product::where('price', '<', 100000)->count()],
-            ['label' => 'Rp 100k - 500k', 'min' => 100000, 'max' => 500000, 'count' => Product::whereBetween('price', [100000, 500000])->count()],
-            ['label' => 'Rp 500k - 1M', 'min' => 500000, 'max' => 1000000, 'count' => Product::whereBetween('price', [500000, 1000000])->count()],
-            ['label' => 'Over Rp 1M', 'min' => 1000000, 'max' => 999999999, 'count' => Product::where('price', '>', 1000000)->count()],
-        ];
-
-        return view('home', compact(
-            'featuredProducts',
-            'latestProducts',
-            'categories',
-            'stats',
-            'topCategories',
-            'priceRanges'
-        ));
+        return view('home', compact('languages', 'recentRequests', 'stats'));
     }
 
-    /**
-     * Quick search from home page
-     */
-    public function quickSearch(Request $request)
+    public function members(Request $request)
     {
-        $query = $request->get('q');
+        $query = User::with(['progress', 'languages'])
+            ->where('users.id', '!=', Auth::id()); // Exclude current user
 
-        if (empty($query)) {
-            return redirect()->route('products');
+        // Filter by language if provided
+        if ($request->language_id) {
+            $query->whereHas('languages', function($q) use ($request) {
+                $q->where('languages.id', $request->language_id);
+            });
         }
 
-        return redirect()->route('products', ['search' => $query]);
+        // Search by name
+        if ($request->search) {
+            $query->where('users.name', 'like', '%' . $request->search . '%');
+        }
+
+        // Sort by karma points (most active members first)
+        $query->leftJoin('user_progress', 'users.id', '=', 'user_progress.user_id')
+            ->orderByDesc('user_progress.karma_points')
+            ->orderBy('users.name')
+            ->select('users.*');
+
+        $users = $query->paginate(20);
+        $languages = Language::orderBy('name')->get();
+
+        return view('members', compact('users', 'languages'));
     }
 }
