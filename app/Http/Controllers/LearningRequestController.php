@@ -5,8 +5,10 @@ namespace App\Http\Controllers;
 use App\Models\LearningRequest;
 use App\Models\Language;
 use App\Services\MatchingService;
+use App\Mail\MatchFoundMail;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Mail;
 
 class LearningRequestController extends Controller
 {
@@ -169,7 +171,13 @@ class LearningRequestController extends Controller
             'status' => 'matched',
         ]);
 
-        // Send notification to the requester
+        // Reload the learning request with language relationship
+        $learningRequest->load('language');
+
+        // Get the requester
+        $requester = $learningRequest->user;
+
+        // Send in-app notification to the requester
         \App\Models\Notification::createNotification(
             $learningRequest->user_id,
             'request_matched',
@@ -181,6 +189,11 @@ class LearningRequestController extends Controller
                 'helper_name' => $user->name,
             ]
         );
+
+        // Send email notification if user has email notifications enabled
+        if ($requester->email && (!isset($requester->email_notifications_enabled) || $requester->email_notifications_enabled)) {
+            Mail::to($requester->email)->send(new MatchFoundMail($learningRequest, $user, $requester));
+        }
 
         return redirect()->route('learning-requests.show', $learningRequest)
             ->with('success', 'You\'ve accepted this request! The requester has been notified. You can now message them to start a session.');

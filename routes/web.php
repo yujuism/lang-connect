@@ -8,6 +8,8 @@ use App\Http\Controllers\ReviewController;
 use App\Http\Controllers\AchievementController;
 use App\Http\Controllers\MessageController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\LeaderboardController;
+use App\Http\Controllers\LevelController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [HomeController::class, 'index'])->name('home');
@@ -47,6 +49,12 @@ Route::middleware('auth')->group(function () {
 
     // Achievements
     Route::get('/achievements', [AchievementController::class, 'index'])->name('achievements.index');
+
+    // Leaderboard
+    Route::get('/leaderboard', [LeaderboardController::class, 'index'])->name('leaderboard.index');
+
+    // Levels
+    Route::get('/levels', [LevelController::class, 'index'])->name('levels.index');
 
     // Messages
     Route::get('/messages', [MessageController::class, 'index'])->name('messages.index');

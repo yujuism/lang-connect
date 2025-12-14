@@ -77,6 +77,24 @@
                     <div class="form-text text-secondary small">Max 2MB. JPG, PNG, or GIF.</div>
                 </div>
 
+                <div class="mb-4">
+                    <label class="form-label fw-semibold" style="color: var(--text-primary);">
+                        <i class="bi bi-envelope"></i> Email Notifications
+                    </label>
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" role="switch" id="email_notifications_enabled"
+                               name="email_notifications_enabled" value="1"
+                               {{ old('email_notifications_enabled', $user->email_notifications_enabled ?? true) ? 'checked' : '' }}
+                               style="cursor: pointer; width: 3em; height: 1.5em;">
+                        <label class="form-check-label" for="email_notifications_enabled" style="cursor: pointer;">
+                            Send me email notifications when my learning requests are matched
+                        </label>
+                    </div>
+                    <div class="form-text text-secondary small">
+                        <i class="bi bi-info-circle"></i> You'll still receive in-app notifications regardless of this setting
+                    </div>
+                </div>
+
                 <button type="submit" class="btn btn-primary" style="padding: 0.75rem 2rem; font-weight: 600;">
                     <i class="bi bi-save"></i> Save Changes
                 </button>

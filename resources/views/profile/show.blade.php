@@ -113,6 +113,18 @@
                 </div>
             </div>
 
+            <!-- Level Progression Card -->
+            @if($user->progress)
+                <div class="card shadow-sm mb-4" style="border-radius: 1rem; border: 1px solid var(--border-color);">
+                    <div class="card-body p-4">
+                        <h6 class="fw-bold mb-3" style="color: var(--text-primary);">
+                            <i class="bi bi-bar-chart-fill"></i> Level Progression
+                        </h6>
+                        <x-level-progress :progress="$user->progress" :showDetails="Auth::id() === $user->id" />
+                    </div>
+                </div>
+            @endif
+
             <!-- Recent Activity Card -->
             <div class="card shadow-sm" style="border-radius: 1rem; border: 1px solid var(--border-color);">
                 <div class="card-body p-4">
