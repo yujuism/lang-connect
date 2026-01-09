@@ -93,12 +93,32 @@ class CallController extends Controller
         ]);
     }
 
+    /**
+     * Show the call window (popup)
+     */
+    public function window(User $user, Request $request)
+    {
+        $callType = $request->query('type'); // 'video' or 'voice' for caller
+        $callId = $request->query('call_id'); // For receiving calls
+        $receiverCallType = $request->query('call_type'); // 'video' or 'voice' for receiver
+        $autoAccept = $request->query('auto_accept') === '1';
+        $isCaller = $callType !== null && $callId === null;
+
+        return view('call.window', [
+            'partner' => $user,
+            'callType' => $callType ?: $receiverCallType,
+            'callId' => $callId,
+            'isCaller' => $isCaller,
+            'autoAccept' => $autoAccept,
+        ]);
+    }
+
     public function signal(Call $call, Request $request)
     {
         \Log::info("Signal endpoint called: call {$call->id}, type {$request->input('signal_type')}");
 
         $request->validate([
-            'signal_type' => 'required|in:offer,answer,ice-candidate,ready',
+            'signal_type' => 'required|in:offer,answer,ice-candidate,ready,video-enabled,video-disabled',
             'signal_data' => 'present|array',
         ]);
 

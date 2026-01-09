@@ -26,7 +26,10 @@ class CallInitiated implements ShouldBroadcast
         sort($userIds);
 
         return [
+            // Conversation channel for existing chat pages
             new PrivateChannel("conversation.{$userIds[0]}.{$userIds[1]}"),
+            // User's personal channel for global incoming call handler
+            new PrivateChannel("user.{$this->call->receiver_id}"),
         ];
     }
 
@@ -42,6 +45,7 @@ class CallInitiated implements ShouldBroadcast
             'caller_id' => $this->call->caller_id,
             'receiver_id' => $this->call->receiver_id,
             'type' => $this->call->type,
+            'caller_name' => $this->call->caller->name,
             'caller' => [
                 'id' => $this->call->caller->id,
                 'name' => $this->call->caller->name,

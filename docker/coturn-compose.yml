@@ -1,0 +1,16 @@
+services:
+  coturn:
+    image: coturn/coturn:latest
+    container_name: coturn
+    restart: unless-stopped
+    network_mode: host
+    command:
+      - -n
+      - --log-file=stdout
+      - --listening-port=3478
+      - --realm=langconnect.cloudsynth.site
+      - --user=langconnect:${TURN_PASSWORD}
+      - --lt-cred-mech
+      - --fingerprint
+      - --no-cli
+      - --external-ip=cloudsynth.site

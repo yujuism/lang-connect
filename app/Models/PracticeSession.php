@@ -24,12 +24,14 @@ class PracticeSession extends Model
         'started_at',
         'completed_at',
         'notes',
+        'canvas_data',
     ];
 
     protected $casts = [
         'scheduled_at' => 'datetime',
         'started_at' => 'datetime',
         'completed_at' => 'datetime',
+        'canvas_data' => 'array',
     ];
 
     public function request(): BelongsTo

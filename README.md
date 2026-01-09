@@ -8,8 +8,9 @@ A modern language exchange platform built with Laravel 11, featuring real-time m
 - **Learning Requests** - Post and browse language learning help requests
 - **Smart Matching** - Intelligent matching system for language partners
 - **Real-Time Messaging** - WebSocket-powered instant messaging with Laravel Reverb
-- **Voice & Video Calling** - WebRTC-powered peer-to-peer voice and video calls
+- **Voice & Video Calling** - WebRTC-powered peer-to-peer voice and video calls with popup window support
 - **Practice Sessions** - Track and manage language practice sessions
+- **Collaborative Canvas** - Real-time whiteboard powered by tldraw for note-taking, diagrams, and drawing during sessions
 - **Review System** - Rate and review language partners
 - **Achievements** - Unlock achievements based on activity
 - **Smart Notifications** - One notification per conversation (no spam!)
@@ -167,7 +168,8 @@ All documentation is organized in the [`../docs/`](../docs/) directory:
 ## 🛠️ Tech Stack
 
 - **Backend**: Laravel 11, PHP 8.2
-- **Frontend**: Blade Templates, Alpine.js, Bootstrap 5
+- **Frontend**: Blade Templates, Alpine.js, Bootstrap 5, React (for canvas)
+- **Collaborative Canvas**: tldraw (React-based whiteboard)
 - **Database**: MySQL 8.0
 - **Real-Time**: Laravel Reverb (WebSocket server)
 - **Build Tool**: Vite
@@ -192,8 +194,9 @@ app/
 resources/
 ├── views/                # Blade templates
 └── js/
-    ├── app.js           # Alpine.js setup
-    └── bootstrap.js     # Laravel Echo setup
+    ├── app.js               # Alpine.js setup
+    ├── bootstrap.js         # Laravel Echo setup
+    └── tldraw-canvas.jsx    # Collaborative canvas (React)
 
 ../docs/                  # All project documentation (in parent folder)
 ```
@@ -325,6 +328,50 @@ const rtcConfig = {
 3. Go to Messages and open a conversation
 4. Click the phone or video icon to start a call
 5. Accept the call on the other browser
+
+## 🎨 Collaborative Canvas
+
+Practice sessions include a real-time collaborative canvas powered by tldraw:
+
+- **Real-time collaboration** - Both participants see changes instantly via WebSocket
+- **Rich drawing tools** - Shapes, arrows, text, sticky notes, freehand drawing
+- **Cursor tracking** - See your partner's cursor position with their name
+- **Follow mode** - Follow your partner's viewport to see what they're working on
+- **Auto-save** - Canvas state saves to database automatically (2 second debounce)
+- **Persistent history** - Canvas is preserved after session ends (read-only)
+- **Participant-only access** - Only session participants can view and edit
+
+### Technical Implementation
+
+- **Frontend**: React component with tldraw (`resources/js/tldraw-canvas.jsx`)
+- **Controller**: `CanvasController` - Handles save/load/broadcast
+- **Event**: `CanvasChanged` - Broadcasts canvas updates to session channel
+- **Channel**: `private-session.{sessionId}` - Private channel for participants
+- **Storage**: `canvas_data` JSON column on `practice_sessions` table
+- **Routes**:
+  - `POST /sessions/{session}/canvas` - Save canvas state
+  - `GET /sessions/{session}/canvas` - Load canvas state
+  - `POST /sessions/{session}/canvas/broadcast` - Broadcast changes to partner
+
+### Reverb Configuration for Canvas
+
+The canvas sends frequent updates. Ensure Reverb is configured with adequate limits:
+
+```php
+// config/reverb.php
+'max_request_size' => 1_000_000,  // 1MB for canvas snapshots
+'max_message_size' => 1_000_000,
+'ping_interval' => 25,             // Keep connections alive
+'activity_timeout' => 120,         // 2 minute timeout
+```
+
+### Testing Collaborative Canvas
+
+1. Start a practice session between two users
+2. Open the session in two browsers
+3. Draw or add shapes - they appear on both screens instantly
+4. Click "Follow [partner]" to sync your view with theirs
+5. After session completion, canvas is preserved but read-only
 
 ## 📝 License
 
