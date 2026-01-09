@@ -3,7 +3,7 @@ set -e
 
 # Wait for MySQL to be ready
 echo "Waiting for MySQL..."
-while ! mysqladmin ping -h"$DB_HOST" -u"$DB_USERNAME" -p"$DB_PASSWORD" --ssl-mode=DISABLED --silent; do
+while ! mysqladmin ping -h"$DB_HOST" -u"$DB_USERNAME" -p"$DB_PASSWORD" --skip-ssl --silent; do
     sleep 2
 done
 echo "MySQL is ready!"

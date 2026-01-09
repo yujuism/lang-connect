@@ -42,20 +42,6 @@ Add public hostname in Cloudflare Zero Trust > Tunnels:
 
 Enable WebSocket in hostname settings.
 
-## TURN Server (VPS)
-
-Deploy on cloudsynth.site:
-
-```bash
-scp docker/coturn-compose.yml sanyan@cloudsynth.site:~/coturn/docker-compose.yml
-ssh sanyan@cloudsynth.site
-cd ~/coturn
-echo "TURN_PASSWORD=K0kDZdSqJvRMhBxVGhKmBXA4SPhIEOb7" > .env
-docker compose up -d
-```
-
-TURN URL: `turn:cloudsynth.site:3478`
-
 ## Commands
 
 ```bash
