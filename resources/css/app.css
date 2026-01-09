@@ -2,23 +2,58 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Fix tldraw toolbar - prevent Tailwind reset from breaking it */
+/* Prevent Tailwind preflight from affecting tldraw */
 #tldraw-container button,
-#tldraw-container [role="button"],
-.tl-container button,
-.tl-container [role="button"],
-.tlui-button,
-.tlui-toolbar button,
-.tlui-toolbar__inner button,
-[class*="tlui-"] button {
-    all: revert !important;
+#tldraw-container [type='button'],
+#tldraw-container [type='reset'],
+#tldraw-container [type='submit'] {
+    background-color: revert;
+    background-image: revert;
+    border-width: revert;
+    border-style: revert;
+    border-color: revert;
+    cursor: revert;
+    padding: revert;
 }
 
-/* Ensure tldraw icons and SVGs are visible */
-#tldraw-container svg,
-.tl-container svg,
-[class*="tlui-"] svg {
-    display: inline-block !important;
-    max-width: none !important;
-    height: auto !important;
+#tldraw-container svg {
+    display: revert;
+    vertical-align: revert;
+}
+
+#tldraw-container img,
+#tldraw-container video {
+    max-width: revert;
+    height: revert;
+    display: revert;
+}
+
+#tldraw-container input,
+#tldraw-container textarea,
+#tldraw-container select {
+    border-width: revert;
+    border-style: revert;
+    border-color: revert;
+    padding: revert;
+    font-size: revert;
+    line-height: revert;
+}
+
+#tldraw-container hr {
+    height: revert;
+    border-top-width: revert;
+}
+
+#tldraw-container a {
+    color: revert;
+    text-decoration: revert;
+}
+
+#tldraw-container table {
+    border-collapse: revert;
+}
+
+#tldraw-container th,
+#tldraw-container td {
+    padding: revert;
 }
