@@ -6,6 +6,7 @@ stages:
 variables:
   REGISTRY: registry.yujuism.com
   IMAGE_NAME: sanyan/lang-connect
+  HOME: /builds
 
 build:
   stage: build
