@@ -96,6 +96,32 @@ spec:
               value: "database"
             - name: QUEUE_CONNECTION
               value: "database"
+            # MinIO (S3-compatible storage for PDFs)
+            - name: MINIO_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: langconnect-secrets
+                  key: MINIO_ACCESS_KEY
+            - name: MINIO_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: langconnect-secrets
+                  key: MINIO_SECRET_KEY
+            - name: MINIO_BUCKET
+              valueFrom:
+                secretKeyRef:
+                  name: langconnect-secrets
+                  key: MINIO_BUCKET
+            - name: MINIO_ENDPOINT
+              valueFrom:
+                secretKeyRef:
+                  name: langconnect-secrets
+                  key: MINIO_ENDPOINT
+            - name: MINIO_URL
+              valueFrom:
+                secretKeyRef:
+                  name: langconnect-secrets
+                  key: MINIO_URL
           readinessProbe:
             httpGet:
               path: /

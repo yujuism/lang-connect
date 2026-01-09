@@ -8,6 +8,7 @@ use App\Models\UserProgress;
 use App\Services\AchievementService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 use Carbon\Carbon;
 
 class SessionController extends Controller
@@ -72,7 +73,10 @@ class SessionController extends Controller
         // Determine partner
         $partner = $session->user1_id === Auth::id() ? $session->user2 : $session->user1;
 
-        return view('sessions.show', compact('session', 'partner'));
+        // Get PDF URL if exists
+        $pdfUrl = $session->pdf_path ? Storage::disk('minio')->url($session->pdf_path) : null;
+
+        return view('sessions.show', compact('session', 'partner', 'pdfUrl'));
     }
 
     /**

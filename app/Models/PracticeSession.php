@@ -25,6 +25,9 @@ class PracticeSession extends Model
         'completed_at',
         'notes',
         'canvas_data',
+        'pdf_path',
+        'pdf_highlights',
+        'pdf_drawings',
     ];
 
     protected $casts = [
@@ -32,6 +35,8 @@ class PracticeSession extends Model
         'started_at' => 'datetime',
         'completed_at' => 'datetime',
         'canvas_data' => 'array',
+        'pdf_highlights' => 'array',
+        'pdf_drawings' => 'array',
     ];
 
     public function request(): BelongsTo

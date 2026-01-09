@@ -12,6 +12,7 @@ use App\Http\Controllers\LeaderboardController;
 use App\Http\Controllers\LevelController;
 use App\Http\Controllers\CallController;
 use App\Http\Controllers\CanvasController;
+use App\Http\Controllers\PdfController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [HomeController::class, 'index'])->name('home');
@@ -53,6 +54,15 @@ Route::middleware('auth')->group(function () {
     Route::post('/sessions/{session}/canvas', [CanvasController::class, 'save'])->name('sessions.canvas.save');
     Route::get('/sessions/{session}/canvas', [CanvasController::class, 'load'])->name('sessions.canvas.load');
     Route::post('/sessions/{session}/canvas/broadcast', [CanvasController::class, 'broadcast'])->name('sessions.canvas.broadcast');
+
+    // PDF (collaborative document reader)
+    Route::post('/sessions/{session}/pdf/upload', [PdfController::class, 'upload'])->name('sessions.pdf.upload');
+    Route::get('/sessions/{session}/pdf', [PdfController::class, 'show'])->name('sessions.pdf.show');
+    Route::post('/sessions/{session}/pdf/highlights', [PdfController::class, 'saveHighlights'])->name('sessions.pdf.highlights');
+    Route::post('/sessions/{session}/pdf/broadcast', [PdfController::class, 'broadcast'])->name('sessions.pdf.broadcast');
+    Route::post('/sessions/{session}/pdf/drawings', [PdfController::class, 'saveDrawings'])->name('sessions.pdf.drawings');
+    Route::post('/sessions/{session}/pdf/drawings/broadcast', [PdfController::class, 'broadcastDrawings'])->name('sessions.pdf.drawings.broadcast');
+    Route::delete('/sessions/{session}/pdf', [PdfController::class, 'destroy'])->name('sessions.pdf.destroy');
 
     // Achievements
     Route::get('/achievements', [AchievementController::class, 'index'])->name('achievements.index');

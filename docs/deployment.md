@@ -55,6 +55,11 @@ In GitLab > Settings > CI/CD > Variables, add:
 |----------|-------|
 | `VITE_REVERB_APP_KEY` | Same as `REVERB_APP_KEY` in secrets.yaml |
 | `VITE_REVERB_HOST` | `langconnect.cloudsynth.site` |
+| `MINIO_ACCESS_KEY` | MinIO access key |
+| `MINIO_SECRET_KEY` | MinIO secret key (masked) |
+| `MINIO_BUCKET` | `langconnect-pdfs` |
+| `MINIO_ENDPOINT` | `http://minio.minio.svc.cluster.local:9000` |
+| `MINIO_URL` | `https://s3.cloudsynth.site` |
 
 ### 5. Deploy App
 
@@ -85,9 +90,10 @@ The GitLab CI pipeline has 3 stages:
 
 ### Required CI Variables
 
-Set these in GitLab CI/CD settings:
-- `VITE_REVERB_APP_KEY` - Reverb public key
-- `VITE_REVERB_HOST` - WebSocket host domain
+Set these in GitLab CI/CD settings (see table in section 4 for full list):
+- `VITE_REVERB_APP_KEY` - Reverb public key (for frontend build)
+- `VITE_REVERB_HOST` - WebSocket host domain (for frontend build)
+- `MINIO_*` - MinIO credentials (for PDF storage)
 
 ## Supervisord Services
 
@@ -96,6 +102,74 @@ The container runs these processes:
 - `php-fpm` - PHP processor
 - `reverb` - WebSocket server
 - `queue-worker` - Processes broadcast events
+
+## Collaborative Canvas
+
+Practice sessions include a real-time collaborative canvas powered by tldraw v1.29.2 (MIT licensed).
+
+### Features
+- Real-time drawing sync between partners (100ms throttle)
+- Partner cursor tracking
+- Follow mode (follow partner's viewport)
+- Auto-save to database (2s debounce)
+- Presence indicator (online/offline status)
+
+### How it works
+1. Canvas state stored in `practice_sessions.canvas_data` (JSON)
+2. Changes broadcast via `CanvasChanged` event on `private-session.{id}` channel
+3. Cursor/presence synced via WebSocket whispers (no server storage)
+
+### Frontend
+- `resources/js/tldraw-canvas.jsx` - React component
+- Uses `@tldraw/tldraw@1.29.2` (MIT license, no commercial license needed)
+- Mounted via `window.mountTldrawCanvas()` on session page
+
+### Backend
+- `CanvasController` - save/load/broadcast endpoints
+- `CanvasChanged` event - broadcasts to session channel
+
+## Collaborative PDF Viewer
+
+Practice sessions also include a collaborative PDF viewer for annotating documents together.
+
+### Features
+- Upload and share PDFs during sessions
+- Text highlighting with color picker
+- Freehand drawing (pen tool) with real-time sync
+- Text annotations with real-time typing indicator
+- Partner cursor tracking on PDF
+- Partner text selection sync (see what partner is selecting)
+- Follow mode (follow partner's page/viewport)
+- Auto-save highlights and drawings to database
+
+### How it works
+1. PDFs stored in MinIO (S3-compatible storage)
+2. Highlights stored in `practice_sessions.pdf_highlights` (JSON)
+3. Drawings stored in `practice_sessions.pdf_drawings` (JSON)
+4. Changes broadcast via WebSocket whispers for real-time sync
+5. SVG overlay with viewBox for scale-independent annotations
+
+### Frontend
+- `resources/js/pdf-viewer.jsx` - React component using react-pdf v10
+- Mounted via `window.mountPdfViewer()` on session page
+
+### Backend
+- `PdfController` - upload/save/broadcast endpoints
+- `PdfHighlightChanged` event - broadcasts changes to partner
+
+### MinIO Configuration
+
+MinIO is used for S3-compatible PDF storage. Required environment variables:
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `MINIO_ACCESS_KEY` | MinIO access key | `langconnect` |
+| `MINIO_SECRET_KEY` | MinIO secret key | `your-secret-key` |
+| `MINIO_BUCKET` | Bucket name | `langconnect-pdfs` |
+| `MINIO_ENDPOINT` | Internal MinIO endpoint | `http://minio.minio.svc.cluster.local:9000` |
+| `MINIO_URL` | Public URL for PDF access | `https://s3.cloudsynth.site` |
+
+Add these to your k8s secrets and GitLab CI variables.
 
 ## Commands
 

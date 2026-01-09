@@ -8,6 +8,7 @@ export default defineConfig({
                 'resources/css/app.css',
                 'resources/js/app.js',
                 'resources/js/tldraw-canvas.jsx',
+                'resources/js/pdf-viewer.jsx',
             ],
             refresh: true,
         }),

@@ -45,19 +45,45 @@
         </div>
     </div>
 
-    <!-- Collaborative Canvas -->
-    <div class="card" style="border-radius: 0.75rem; border: 1px solid var(--border-color); overflow: hidden; position: relative; z-index: 1; isolation: isolate;">
-        <div class="card-body p-0" style="height: 500px; position: relative;">
-            <div id="tldraw-container" style="height: 100%; width: 100%; position: relative;"></div>
+    <!-- Canvas/PDF Tabs -->
+    <div class="card" style="border-radius: 0.75rem; border: 1px solid var(--border-color); overflow: hidden;">
+        <div class="card-header p-0 bg-transparent border-bottom d-flex justify-content-between align-items-center" style="border-color: var(--border-color) !important;">
+            <ul class="nav nav-tabs border-0" role="tablist">
+                <li class="nav-item">
+                    <button class="nav-link active px-4 py-2" id="canvas-tab" data-bs-toggle="tab" data-bs-target="#canvas-panel" type="button" role="tab">
+                        <i class="bi bi-brush me-1"></i> Canvas
+                    </button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link px-4 py-2" id="pdf-tab" data-bs-toggle="tab" data-bs-target="#pdf-panel" type="button" role="tab">
+                        <i class="bi bi-file-pdf me-1"></i> PDF
+                    </button>
+                </li>
+            </ul>
+            @if($session->status === 'in_progress')
+            <div id="pdf-upload-controls" class="pe-3" style="display: none;">
+                <label class="btn btn-sm btn-outline-primary mb-0">
+                    <i class="bi bi-upload me-1"></i> Upload PDF
+                    <input type="file" id="pdf-upload-input" accept=".pdf" style="display: none;">
+                </label>
+            </div>
+            @endif
+        </div>
+        <div class="card-body p-0 tab-content">
+            <!-- Canvas Tab -->
+            <div class="tab-pane fade show active" id="canvas-panel" role="tabpanel" style="height: 500px; position: relative; contain: strict;">
+                <div id="tldraw-container" style="height: 100%; width: 100%;"></div>
+            </div>
+            <!-- PDF Tab -->
+            <div class="tab-pane fade" id="pdf-panel" role="tabpanel" style="height: 500px; position: relative;">
+                <div id="pdf-viewer-container" style="height: 100%; width: 100%;"></div>
+            </div>
         </div>
     </div>
 
-    <!-- Collapsible Details (shown by default) -->
-    <div class="mt-3" style="position: relative; z-index: 2;">
-        <button class="btn btn-sm btn-link text-secondary p-0" type="button" data-bs-toggle="collapse" data-bs-target="#sessionDetails" aria-expanded="true" id="details-toggle">
-            <i class="bi bi-chevron-up" id="toggle-icon"></i> <span id="toggle-text">Hide details</span>
-        </button>
-        <div class="collapse show mt-2" id="sessionDetails">
+    <!-- Session Details -->
+    <div class="mt-3">
+        <div class="mt-2" id="sessionDetails">
             <div class="card" style="border-radius: 0.75rem; border: 1px solid var(--border-color);">
                 <div class="card-body p-3">
                     <div class="row">
@@ -179,30 +205,13 @@ document.getElementById('end-session-btn').addEventListener('click', function() 
 </script>
 @endif
 
-<script>
-// Toggle details text/icon
-const sessionDetails = document.getElementById('sessionDetails');
-const toggleText = document.getElementById('toggle-text');
-const toggleIcon = document.getElementById('toggle-icon');
-
-if (sessionDetails) {
-    sessionDetails.addEventListener('hide.bs.collapse', function() {
-        toggleText.textContent = 'Show details';
-        toggleIcon.classList.remove('bi-chevron-up');
-        toggleIcon.classList.add('bi-chevron-down');
-    });
-    sessionDetails.addEventListener('show.bs.collapse', function() {
-        toggleText.textContent = 'Hide details';
-        toggleIcon.classList.remove('bi-chevron-down');
-        toggleIcon.classList.add('bi-chevron-up');
-    });
-}
-</script>
 
 @push('scripts')
-@vite(['resources/js/tldraw-canvas.jsx'])
+@vite(['resources/js/tldraw-canvas.jsx', 'resources/js/pdf-viewer.jsx'])
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    let pdfViewerRoot = null;
+
     // Wait for tldraw module to load
     const checkTldraw = setInterval(() => {
         if (typeof window.mountTldrawCanvas === 'function') {
@@ -220,8 +229,102 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }, 100);
 
+    // Mount PDF viewer function
+    function mountPdf(url) {
+        if (typeof window.mountPdfViewer !== 'function') return;
+
+        // Unmount existing viewer if any
+        if (pdfViewerRoot) {
+            pdfViewerRoot.unmount();
+            pdfViewerRoot = null;
+        }
+
+        pdfViewerRoot = window.mountPdfViewer('pdf-viewer-container', {
+            sessionId: {{ $session->id }},
+            currentUserId: {{ auth()->id() }},
+            partnerName: @json($partner->name),
+            partnerId: {{ $partner->id }},
+            isReadOnly: {{ $session->status !== 'in_progress' ? 'true' : 'false' }},
+            pdfUrl: url,
+            initialHighlights: @json($session->pdf_highlights ?? []),
+            initialDrawings: @json($session->pdf_drawings ?? []),
+            csrfToken: '{{ csrf_token() }}',
+        });
+    }
+
+    // Wait for PDF viewer module to load
+    const checkPdfViewer = setInterval(() => {
+        if (typeof window.mountPdfViewer === 'function') {
+            clearInterval(checkPdfViewer);
+            mountPdf(@json($pdfUrl));
+        }
+    }, 100);
+
     // Timeout after 10 seconds
-    setTimeout(() => clearInterval(checkTldraw), 10000);
+    setTimeout(() => {
+        clearInterval(checkTldraw);
+        clearInterval(checkPdfViewer);
+    }, 10000);
+
+    // Show/hide upload controls when switching tabs
+    const pdfTab = document.getElementById('pdf-tab');
+    const uploadControls = document.getElementById('pdf-upload-controls');
+    if (pdfTab && uploadControls) {
+        pdfTab.addEventListener('shown.bs.tab', () => uploadControls.style.display = 'block');
+        pdfTab.addEventListener('hidden.bs.tab', () => uploadControls.style.display = 'none');
+    }
+
+    // Handle PDF upload
+    const uploadInput = document.getElementById('pdf-upload-input');
+    if (uploadInput) {
+        uploadInput.addEventListener('change', async function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const formData = new FormData();
+            formData.append('pdf', file);
+
+            const btn = uploadInput.parentElement;
+            const originalHtml = btn.innerHTML;
+            btn.innerHTML = '<i class="bi bi-hourglass-split me-1"></i> Uploading...';
+
+            try {
+                const response = await fetch('/sessions/{{ $session->id }}/pdf/upload', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                    },
+                    body: formData,
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    // Remount PDF viewer with new URL
+                    mountPdf(data.pdf_url);
+                    btn.innerHTML = '<i class="bi bi-check me-1"></i> Uploaded!';
+                    setTimeout(() => { btn.innerHTML = originalHtml; }, 2000);
+
+                    // Broadcast to partner
+                    if (window.Echo) {
+                        window.Echo.private('session.{{ $session->id }}')
+                            .whisper('pdf-changed', {
+                                user_id: {{ auth()->id() }},
+                                pdf_url: data.pdf_url,
+                                highlights: [],
+                            });
+                    }
+                } else {
+                    throw new Error('Upload failed');
+                }
+            } catch (error) {
+                console.error('Upload error:', error);
+                btn.innerHTML = '<i class="bi bi-x me-1"></i> Failed';
+                setTimeout(() => { btn.innerHTML = originalHtml; }, 2000);
+            }
+
+            uploadInput.value = '';
+        });
+    }
 });
 </script>
 @endpush
