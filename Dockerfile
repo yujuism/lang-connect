@@ -3,8 +3,8 @@ FROM node:20-alpine AS node-builder
 
 WORKDIR /app
 
-COPY package.json pnpm-lock.yaml ./
-RUN npm install -g pnpm && pnpm install --frozen-lockfile
+COPY package.json ./
+RUN npm install -g pnpm && pnpm install
 
 COPY resources ./resources
 COPY vite.config.js postcss.config.js tailwind.config.js ./
@@ -15,7 +15,7 @@ FROM composer:2 AS composer-builder
 
 WORKDIR /app
 
-COPY composer.json composer.lock ./
+COPY composer.json ./
 RUN composer install --no-dev --no-scripts --no-autoloader --prefer-dist
 
 COPY . .

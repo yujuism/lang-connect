@@ -38,12 +38,7 @@ Thumbs.db
 # Logs
 /storage/logs/*.log
 
-# NPM & Composer lock files (optional - some teams commit these)
-package-lock.json
-composer.lock
-
 # Laravel Mix / Vite
 /public/mix-manifest.json
 npm-debug.log
 yarn-error.log
-pnpm-lock.yaml
