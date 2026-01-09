@@ -3,19 +3,22 @@
 @tailwind utilities;
 
 /* Fix tldraw toolbar - prevent Tailwind reset from breaking it */
+#tldraw-container button,
+#tldraw-container [role="button"],
 .tl-container button,
 .tl-container [role="button"],
 .tlui-button,
 .tlui-toolbar button,
-.tlui-toolbar__inner button {
-    background-color: revert;
-    background-image: revert;
-    border: revert;
-    padding: revert;
-    color: revert;
+.tlui-toolbar__inner button,
+[class*="tlui-"] button {
+    all: revert !important;
 }
 
-/* Ensure tldraw icons are visible */
-.tl-container svg {
-    display: inline-block;
+/* Ensure tldraw icons and SVGs are visible */
+#tldraw-container svg,
+.tl-container svg,
+[class*="tlui-"] svg {
+    display: inline-block !important;
+    max-width: none !important;
+    height: auto !important;
 }
