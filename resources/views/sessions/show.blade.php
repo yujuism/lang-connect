@@ -46,14 +46,14 @@
     </div>
 
     <!-- Collaborative Canvas -->
-    <div class="card" style="border-radius: 0.75rem; border: 1px solid var(--border-color); overflow: hidden;">
-        <div class="card-body p-0" style="height: 500px;">
-            <div id="tldraw-container" style="height: 100%; width: 100%;"></div>
+    <div class="card" style="border-radius: 0.75rem; border: 1px solid var(--border-color); overflow: hidden; position: relative; z-index: 1; isolation: isolate;">
+        <div class="card-body p-0" style="height: 500px; position: relative;">
+            <div id="tldraw-container" style="height: 100%; width: 100%; position: relative;"></div>
         </div>
     </div>
 
     <!-- Collapsible Details (shown by default) -->
-    <div class="mt-3">
+    <div class="mt-3" style="position: relative; z-index: 2;">
         <button class="btn btn-sm btn-link text-secondary p-0" type="button" data-bs-toggle="collapse" data-bs-target="#sessionDetails" aria-expanded="true" id="details-toggle">
             <i class="bi bi-chevron-up" id="toggle-icon"></i> <span id="toggle-text">Hide details</span>
         </button>
