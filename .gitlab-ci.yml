@@ -13,7 +13,14 @@ build:
   image: docker:27
   script:
     - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $REGISTRY
-    - docker build -t $REGISTRY/$IMAGE_NAME:latest -t $REGISTRY/$IMAGE_NAME:$CI_COMMIT_SHA .
+    - |
+      docker build \
+        --build-arg VITE_REVERB_APP_KEY=8cb95967cdfb286005d5aeba3b991b92 \
+        --build-arg VITE_REVERB_HOST=langconnect.cloudsynth.site \
+        --build-arg VITE_REVERB_PORT=443 \
+        --build-arg VITE_REVERB_SCHEME=https \
+        -t $REGISTRY/$IMAGE_NAME:latest \
+        -t $REGISTRY/$IMAGE_NAME:$CI_COMMIT_SHA .
     - docker push $REGISTRY/$IMAGE_NAME:latest
     - docker push $REGISTRY/$IMAGE_NAME:$CI_COMMIT_SHA
   only:
