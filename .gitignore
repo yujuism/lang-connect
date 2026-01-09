@@ -46,3 +46,4 @@ composer.lock
 /public/mix-manifest.json
 npm-debug.log
 yarn-error.log
+pnpm-lock.yaml

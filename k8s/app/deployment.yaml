@@ -1,0 +1,110 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: langconnect
+  namespace: langconnect
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: langconnect
+  template:
+    metadata:
+      labels:
+        app: langconnect
+    spec:
+      imagePullSecrets:
+        - name: registry-secret
+      containers:
+        - name: langconnect
+          image: registry.yujuism.com/sanyan/lang-connect:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8000
+              name: http
+            - containerPort: 8080
+              name: reverb
+          env:
+            - name: APP_NAME
+              value: "LangConnect"
+            - name: APP_ENV
+              value: "production"
+            - name: APP_DEBUG
+              value: "false"
+            - name: APP_URL
+              value: "https://langconnect.cloudsynth.site"
+            - name: APP_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: langconnect-secrets
+                  key: APP_KEY
+            - name: DB_CONNECTION
+              value: "mysql"
+            - name: DB_HOST
+              value: "mysql.langconnect.svc.cluster.local"
+            - name: DB_PORT
+              value: "3306"
+            - name: DB_DATABASE
+              value: "langconnect"
+            - name: DB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: langconnect-secrets
+                  key: MYSQL_USER
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: langconnect-secrets
+                  key: MYSQL_PASSWORD
+            - name: BROADCAST_CONNECTION
+              value: "reverb"
+            - name: REVERB_APP_ID
+              valueFrom:
+                secretKeyRef:
+                  name: langconnect-secrets
+                  key: REVERB_APP_ID
+            - name: REVERB_APP_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: langconnect-secrets
+                  key: REVERB_APP_KEY
+            - name: REVERB_APP_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: langconnect-secrets
+                  key: REVERB_APP_SECRET
+            - name: REVERB_HOST
+              value: "langconnect.cloudsynth.site"
+            - name: REVERB_PORT
+              value: "443"
+            - name: REVERB_SCHEME
+              value: "https"
+            - name: VITE_REVERB_APP_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: langconnect-secrets
+                  key: REVERB_APP_KEY
+            - name: VITE_REVERB_HOST
+              value: "langconnect.cloudsynth.site"
+            - name: VITE_REVERB_PORT
+              value: "443"
+            - name: VITE_REVERB_SCHEME
+              value: "https"
+            - name: SESSION_DRIVER
+              value: "database"
+            - name: CACHE_STORE
+              value: "database"
+            - name: QUEUE_CONNECTION
+              value: "database"
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8000
+            initialDelaySeconds: 60
+            periodSeconds: 30

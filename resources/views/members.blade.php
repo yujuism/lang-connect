@@ -127,8 +127,67 @@
 
     <!-- Pagination -->
     @if($users->hasPages())
-        <div class="mt-4">
-            {{ $users->links() }}
+        <div class="mt-5 d-flex justify-content-center">
+            <nav aria-label="Page navigation">
+                <ul class="pagination pagination-sm mb-0" style="gap: 0.4rem;">
+                    {{-- Previous Page Link --}}
+                    @if ($users->onFirstPage())
+                        <li class="page-item disabled">
+                            <span class="page-link" style="border-radius: 0.5rem; padding: 0.4rem 0.7rem; font-size: 0.85rem; border: 1px solid #dee2e6; background: #f8f9fa; color: #adb5bd;">
+                                <i class="bi bi-chevron-left"></i>
+                            </span>
+                        </li>
+                    @else
+                        <li class="page-item">
+                            <a class="page-link" href="{{ $users->previousPageUrl() }}" style="border-radius: 0.5rem; padding: 0.4rem 0.7rem; font-size: 0.85rem; border: 1px solid #dee2e6; background: white; color: #333; transition: all 0.2s;">
+                                <i class="bi bi-chevron-left"></i>
+                            </a>
+                        </li>
+                    @endif
+
+                    {{-- Pagination Elements --}}
+                    @foreach ($users->getUrlRange(1, $users->lastPage()) as $page => $url)
+                        @if ($page == $users->currentPage())
+                            <li class="page-item active">
+                                <span class="page-link" style="border-radius: 0.5rem; padding: 0.4rem 0.7rem; font-size: 0.85rem; font-weight: 600; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: none; color: white; box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);">
+                                    {{ $page }}
+                                </span>
+                            </li>
+                        @else
+                            <li class="page-item">
+                                <a class="page-link" href="{{ $url }}" style="border-radius: 0.5rem; padding: 0.4rem 0.7rem; font-size: 0.85rem; border: 1px solid #dee2e6; background: white; color: #333; transition: all 0.2s;">
+                                    {{ $page }}
+                                </a>
+                            </li>
+                        @endif
+                    @endforeach
+
+                    {{-- Next Page Link --}}
+                    @if ($users->hasMorePages())
+                        <li class="page-item">
+                            <a class="page-link" href="{{ $users->nextPageUrl() }}" style="border-radius: 0.5rem; padding: 0.4rem 0.7rem; font-size: 0.85rem; border: 1px solid #dee2e6; background: white; color: #333; transition: all 0.2s;">
+                                <i class="bi bi-chevron-right"></i>
+                            </a>
+                        </li>
+                    @else
+                        <li class="page-item disabled">
+                            <span class="page-link" style="border-radius: 0.5rem; padding: 0.4rem 0.7rem; font-size: 0.85rem; border: 1px solid #dee2e6; background: #f8f9fa; color: #adb5bd;">
+                                <i class="bi bi-chevron-right"></i>
+                            </span>
+                        </li>
+                    @endif
+                </ul>
+            </nav>
+
+            <style>
+                .pagination .page-link:hover:not(.active .page-link) {
+                    background: #f8f9fa !important;
+                    border-color: #667eea !important;
+                    color: #667eea !important;
+                    transform: translateY(-1px);
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+                }
+            </style>
         </div>
     @endif
 </div>

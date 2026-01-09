@@ -15,8 +15,18 @@
              border-radius: 1rem;">
             {{ $message->message }}
         </div>
-        <div class="small text-secondary mt-1">
+        <div class="small text-secondary mt-1 d-flex align-items-center gap-1">
             {{ $message->created_at->format('g:i A') }}
+            @if($isOwnMessage)
+                <span class="read-status" data-read="{{ $message->is_read ? 'true' : 'false' }}"
+                      style="color: {{ $message->is_read ? '#22c55e' : 'inherit' }};">
+                    @if($message->is_read)
+                        <i class="bi bi-check2-all"></i>
+                    @else
+                        <i class="bi bi-check2"></i>
+                    @endif
+                </span>
+            @endif
         </div>
     </div>
 </div>

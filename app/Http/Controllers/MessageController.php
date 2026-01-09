@@ -91,6 +91,25 @@ class MessageController extends Controller
     }
 
     /**
+     * Mark messages from a user as read
+     *
+     * @param User $user
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function markRead(User $user)
+    {
+        /** @var \App\Models\User $currentUser */
+        $currentUser = Auth::user();
+
+        $count = $this->messageService->markAsRead($user, $currentUser);
+
+        return response()->json([
+            'success' => true,
+            'marked_count' => $count,
+        ]);
+    }
+
+    /**
      * Fetch new messages (for AJAX polling)
      *
      * @param User $user

@@ -327,6 +327,143 @@
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
+    <!-- WebRTC Adapter - handles browser compatibility for WebRTC -->
+    <script src="https://webrtc.github.io/adapter/adapter-latest.js"></script>
+
+    @auth
+    <!-- Global Incoming Call Handler -->
+    <div id="global-incoming-call" class="d-none position-fixed" style="top: 20px; right: 20px; z-index: 10000; width: 320px; border-radius: 16px; overflow: hidden; box-shadow: 0 8px 32px rgba(0,0,0,0.3); background: linear-gradient(135deg, #1a1a2e, #16213e);">
+        <div class="p-4 text-white text-center">
+            <div class="mb-3">
+                <div class="rounded-circle d-flex align-items-center justify-content-center mx-auto"
+                     style="width: 80px; height: 80px; background: linear-gradient(135deg, var(--primary-color), var(--primary-dark)); font-size: 2rem; font-weight: bold; animation: pulse 1.5s ease-in-out infinite;">
+                    <span id="incoming-caller-initial">?</span>
+                </div>
+            </div>
+            <h5 class="fw-semibold mb-1" id="incoming-caller-name">Incoming Call</h5>
+            <p class="small opacity-75 mb-3" id="incoming-call-label">Voice call...</p>
+            <div class="d-flex justify-content-center gap-3">
+                <button class="btn rounded-circle d-flex align-items-center justify-content-center" onclick="rejectGlobalCall()" style="width: 56px; height: 56px; background: #dc2626; border: none; color: white;">
+                    <i class="bi bi-telephone-x-fill fs-5"></i>
+                </button>
+                <button class="btn rounded-circle d-flex align-items-center justify-content-center" onclick="acceptGlobalCall()" style="width: 56px; height: 56px; background: #22c55e; border: none; color: white;">
+                    <i class="bi bi-telephone-fill fs-5"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+    </style>
+
+    <script>
+        // Global call state
+        let globalIncomingCall = null;
+        let globalCallWindow = null;
+
+        // Open call window (used by any page)
+        window.openCallWindow = function(partnerId, callType) {
+            const width = 400;
+            const height = 550;
+            const left = window.screen.width - width - 20;
+            const top = 100;
+
+            globalCallWindow = window.open(
+                `/call/${partnerId}/window?type=${callType}`,
+                'LangConnectCall',
+                `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=no`
+            );
+
+            if (globalCallWindow) {
+                globalCallWindow.focus();
+            }
+            return globalCallWindow;
+        };
+
+        // Accept incoming call
+        function acceptGlobalCall() {
+            if (!globalIncomingCall) return;
+
+            document.getElementById('global-incoming-call').classList.add('d-none');
+
+            const width = 400;
+            const height = 550;
+            const left = window.screen.width - width - 20;
+            const top = 100;
+
+            globalCallWindow = window.open(
+                `/call/${globalIncomingCall.caller_id}/window?call_id=${globalIncomingCall.call_id}&call_type=${globalIncomingCall.type}&auto_accept=1`,
+                'LangConnectCall',
+                `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=no`
+            );
+
+            if (globalCallWindow) {
+                globalCallWindow.focus();
+            }
+
+            globalIncomingCall = null;
+        }
+
+        // Reject incoming call
+        async function rejectGlobalCall() {
+            if (!globalIncomingCall) return;
+
+            document.getElementById('global-incoming-call').classList.add('d-none');
+
+            await fetch(`/call/${globalIncomingCall.call_id}/reject`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                    'Accept': 'application/json'
+                }
+            });
+
+            globalIncomingCall = null;
+        }
+
+        // Setup global WebSocket listener for incoming calls
+        function setupGlobalCallListener() {
+            if (typeof window.Echo === 'undefined') {
+                setTimeout(setupGlobalCallListener, 200);
+                return;
+            }
+
+            const currentUserId = {{ auth()->id() }};
+
+            // Listen on the user's private channel for incoming calls from anyone
+            window.Echo.private(`user.${currentUserId}`)
+                .listen('.call.initiated', (event) => {
+                    // Don't show if already in a call window or on a page handling calls
+                    if (globalCallWindow && !globalCallWindow.closed) return;
+                    if (window.currentCall) return;
+
+                    globalIncomingCall = event;
+
+                    document.getElementById('incoming-caller-initial').textContent = event.caller_name ? event.caller_name.charAt(0).toUpperCase() : '?';
+                    document.getElementById('incoming-caller-name').textContent = event.caller_name || 'Incoming Call';
+                    document.getElementById('incoming-call-label').textContent = event.type === 'video' ? 'Video call...' : 'Voice call...';
+                    document.getElementById('global-incoming-call').classList.remove('d-none');
+
+                    // Auto-hide after 30 seconds if not answered
+                    setTimeout(() => {
+                        if (globalIncomingCall && globalIncomingCall.call_id === event.call_id) {
+                            document.getElementById('global-incoming-call').classList.add('d-none');
+                            globalIncomingCall = null;
+                        }
+                    }, 30000);
+                });
+        }
+
+        // Start listening when page loads
+        document.addEventListener('DOMContentLoaded', setupGlobalCallListener);
+    </script>
+    @endauth
+
     @yield('extra-js')
+    @stack('scripts')
 </body>
 </html>

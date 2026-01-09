@@ -6,6 +6,7 @@ use App\Models\Message;
 use App\Models\User;
 use App\Models\Notification;
 use App\Events\MessageSent;
+use App\Events\MessagesRead;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Collection;
 
@@ -81,6 +82,7 @@ class MessageService
      * Mark messages as read
      *
      * Also marks the notification from this sender as read
+     * and broadcasts read receipt via WebSocket
      *
      * @param User $sender
      * @param User $receiver
@@ -88,20 +90,39 @@ class MessageService
      */
     public function markAsRead(User $sender, User $receiver): int
     {
-        // Mark messages as read
-        $count = Message::where('sender_id', $sender->id)
+        $now = now();
+
+        // Get message IDs that will be marked as read
+        $messageIds = Message::where('sender_id', $sender->id)
             ->where('receiver_id', $receiver->id)
             ->where('is_read', false)
-            ->update(['is_read' => true, 'read_at' => now()]);
+            ->pluck('id')
+            ->toArray();
+
+        if (empty($messageIds)) {
+            return 0;
+        }
+
+        // Mark messages as read
+        Message::whereIn('id', $messageIds)
+            ->update(['is_read' => true, 'read_at' => $now]);
 
         // Also mark notification from this sender as read
         Notification::where('user_id', $receiver->id)
             ->where('type', 'new_message')
             ->where('is_read', false)
             ->whereJsonContains('data->user_id', $sender->id)
-            ->update(['is_read' => true, 'read_at' => now()]);
+            ->update(['is_read' => true, 'read_at' => $now]);
 
-        return $count;
+        // Broadcast read receipt
+        broadcast(new MessagesRead(
+            $receiver->id,
+            $sender->id,
+            $messageIds,
+            $now->toISOString()
+        ))->toOthers();
+
+        return count($messageIds);
     }
 
     /**

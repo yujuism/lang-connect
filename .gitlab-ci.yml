@@ -1,0 +1,62 @@
+stages:
+  - build
+  - infra
+  - deploy
+
+variables:
+  REGISTRY: registry.yujuism.com
+  IMAGE_NAME: sanyan/lang-connect
+
+build:
+  stage: build
+  image: docker:27
+  script:
+    - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $REGISTRY
+    - docker build -t $REGISTRY/$IMAGE_NAME:latest -t $REGISTRY/$IMAGE_NAME:$CI_COMMIT_SHA .
+    - docker push $REGISTRY/$IMAGE_NAME:latest
+    - docker push $REGISTRY/$IMAGE_NAME:$CI_COMMIT_SHA
+  only:
+    - main
+  tags:
+    - 243-runner
+
+infra:
+  stage: infra
+  image: bitnami/kubectl:latest
+  script:
+    - |
+      if ! kubectl get namespace langconnect > /dev/null 2>&1; then
+        echo "Creating namespace..."
+        kubectl apply -f k8s/infrastructure/namespace.yaml
+        kubectl apply -f k8s/infrastructure/limitrange.yaml
+        kubectl apply -f k8s/infrastructure/secrets.yaml
+        kubectl apply -f k8s/infrastructure/mysql-pvc.yaml
+        kubectl apply -f k8s/infrastructure/mysql-deployment.yaml
+        kubectl create secret docker-registry registry-secret \
+          --docker-server=$REGISTRY \
+          --docker-username=gitlab-ci-token \
+          --docker-password=$CI_JOB_TOKEN \
+          -n langconnect
+        echo "Waiting for MySQL to be ready..."
+        kubectl wait --for=condition=available deployment/mysql -n langconnect --timeout=120s
+      else
+        echo "Infrastructure already exists, skipping..."
+      fi
+  only:
+    - main
+  tags:
+    - kube-runner
+
+deploy:
+  stage: deploy
+  image: bitnami/kubectl:latest
+  script:
+    - kubectl apply -f k8s/app/deployment.yaml
+    - kubectl apply -f k8s/app/service.yaml
+    - kubectl rollout restart deployment/langconnect -n langconnect
+    - kubectl rollout status deployment/langconnect -n langconnect --timeout=300s
+    - echo "LangConnect deployed successfully"
+  only:
+    - main
+  tags:
+    - kube-runner

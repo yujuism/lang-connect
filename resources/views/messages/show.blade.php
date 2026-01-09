@@ -15,17 +15,27 @@
                 <a href="{{ route('messages.index') }}" class="btn btn-sm btn-outline-secondary me-3">
                     <i class="bi bi-arrow-left"></i>
                 </a>
-                <div class="rounded-circle d-flex align-items-center justify-content-center me-3"
-                     style="width: 50px; height: 50px; background: linear-gradient(135deg, var(--primary-color), var(--primary-dark)); color: white; font-size: 1.25rem; font-weight: bold;">
-                    {{ substr($user->name, 0, 1) }}
-                </div>
-                <div>
-                    <div class="fw-bold" style="color: var(--text-primary);">{{ $user->name }}</div>
-                    <div class="small text-secondary">
-                        <a href="{{ route('profile.show', $user) }}" class="text-decoration-none" style="color: var(--primary-color);">
-                            View Profile
-                        </a>
+                <div class="position-relative me-3">
+                    <div class="rounded-circle d-flex align-items-center justify-content-center"
+                         style="width: 50px; height: 50px; background: linear-gradient(135deg, var(--primary-color), var(--primary-dark)); color: white; font-size: 1.25rem; font-weight: bold;">
+                        {{ substr($user->name, 0, 1) }}
                     </div>
+                    <span id="online-status-dot" class="position-absolute bottom-0 end-0 rounded-circle border border-2 border-white"
+                          style="width: 14px; height: 14px; background: #6c757d;"></span>
+                </div>
+                <div class="flex-grow-1">
+                    <div class="fw-bold" style="color: var(--text-primary);">{{ $user->name }}</div>
+                    <div class="small" id="online-status-text" style="color: #6c757d;">
+                        Offline
+                    </div>
+                </div>
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-outline-primary rounded-circle p-2" id="voice-call-btn" title="Voice Call" onclick="window.openCallWindow({{ $user->id }}, 'voice')">
+                        <i class="bi bi-telephone-fill"></i>
+                    </button>
+                    <button type="button" class="btn btn-outline-primary rounded-circle p-2" id="video-call-btn" title="Video Call" onclick="window.openCallWindow({{ $user->id }}, 'video')">
+                        <i class="bi bi-camera-video-fill"></i>
+                    </button>
                 </div>
             </div>
         </div>
@@ -39,8 +49,37 @@
                     @include('messages.partials.message', ['message' => $message])
                 @endforeach
             </div>
+            <!-- Typing Indicator -->
+            <div id="typing-indicator" class="d-none mb-2">
+                <div class="d-flex align-items-center text-secondary small">
+                    <span class="typing-dots me-2">
+                        <span class="dot"></span>
+                        <span class="dot"></span>
+                        <span class="dot"></span>
+                    </span>
+                    <span>{{ $user->name }} is typing...</span>
+                </div>
+            </div>
         </div>
     </div>
+
+    <style>
+        .typing-dots .dot {
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            background: var(--primary-color);
+            border-radius: 50%;
+            animation: typing 1.4s infinite;
+            margin-right: 2px;
+        }
+        .typing-dots .dot:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dots .dot:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes typing {
+            0%, 60%, 100% { opacity: 0.3; transform: translateY(0); }
+            30% { opacity: 1; transform: translateY(-4px); }
+        }
+    </style>
 
     <!-- Send Message Form -->
     <div class="card shadow-sm" style="border-radius: 1rem; border: 1px solid var(--border-color);">
@@ -71,6 +110,29 @@ let lastMessageId = {{ $messages->last()?->id ?? 0 }};
 const userId = {{ $user->id }};
 const currentUserId = {{ Auth::id() }};
 
+// Online status functions
+function updateOnlineStatus() {
+    const isOnline = window.isUserOnline && window.isUserOnline(userId);
+    const dot = document.getElementById('online-status-dot');
+    const text = document.getElementById('online-status-text');
+
+    if (isOnline) {
+        dot.style.background = '#22c55e';
+        text.textContent = 'Online';
+        text.style.color = '#22c55e';
+    } else {
+        dot.style.background = '#6c757d';
+        text.textContent = 'Offline';
+        text.style.color = '#6c757d';
+    }
+}
+
+// Listen for online status changes
+window.addEventListener('online-users-updated', updateOnlineStatus);
+
+// Initial check after Echo is ready
+setTimeout(updateOnlineStatus, 500);
+
 // Scroll to bottom on load
 function scrollToBottom() {
     const container = document.getElementById('message-container');
@@ -84,10 +146,7 @@ document.getElementById('message-form').addEventListener('submit', async functio
     e.preventDefault();
     e.stopPropagation(); // Stop event from bubbling
 
-    if (isSending) {
-        console.log('Already sending, ignoring duplicate request');
-        return;
-    }
+    if (isSending) return;
 
     const input = document.getElementById('message-input');
     const message = input.value.trim();
@@ -111,8 +170,6 @@ document.getElementById('message-form').addEventListener('submit', async functio
         });
 
         if (!response.ok) {
-            const errorText = await response.text();
-            console.error('Server error:', errorText);
             alert('Error sending message. Please try again.');
             return;
         }
@@ -127,50 +184,97 @@ document.getElementById('message-form').addEventListener('submit', async functio
             lastMessageId = data.message.id;
             scrollToBottom();
         } else {
-            console.error('Message send failed:', data);
             alert('Failed to send message. Please try again.');
         }
     } catch (error) {
-        console.error('Error sending message:', error);
-        alert('Error sending message: ' + error.message);
+        alert('Error sending message. Please try again.');
     } finally {
         isSending = false; // Reset flag
     }
 });
 
-// WebSocket: Listen for new messages in real-time
+// WebSocket: Listen for new messages and typing events
+let channel = null;
+let typingTimeout = null;
+
 function setupWebSocket() {
     if (typeof window.Echo === 'undefined') {
-        console.log('Echo not ready yet, waiting...');
-        setTimeout(setupWebSocket, 100); // Try again in 100ms
+        setTimeout(setupWebSocket, 100);
         return;
     }
-
-    console.log('✅ Echo is ready! Setting up WebSocket listener...');
 
     const userIds = [currentUserId, userId].sort((a, b) => a - b);
     const channelName = `conversation.${userIds[0]}.${userIds[1]}`;
 
-    console.log('Subscribing to channel:', channelName);
-    console.log('Current user ID:', currentUserId);
-    console.log('Partner user ID:', userId);
+    channel = window.Echo.private(channelName);
 
-    window.Echo.private(channelName)
-        .subscribed(() => {
-            console.log('✅ Successfully subscribed to channel:', channelName);
-        })
-        .listen('.message.sent', (event) => {
-            console.log('📨 New message received via WebSocket:', event);
+    channel.listen('.message.sent', (event) => {
             appendMessage(event);
             lastMessageId = event.id;
+            hideTypingIndicator();
             scrollToBottom();
+            // Mark as read if we're the receiver
+            if (event.receiver_id === currentUserId) {
+                markMessagesAsRead();
+            }
         })
-        .error((error) => {
-            console.error('❌ Echo error:', error);
+        .listen('.messages.read', (event) => {
+            // Update read status for messages that were read
+            if (event.reader_id === userId) {
+                updateReadStatus(event.message_ids);
+            }
+        })
+        .listenForWhisper('typing', (e) => {
+            if (e.userId !== currentUserId) {
+                showTypingIndicator();
+            }
         });
-
-    console.log('WebSocket listener setup complete');
 }
+
+// Update read status checkmarks
+function updateReadStatus(messageIds) {
+    messageIds.forEach(id => {
+        const msgEl = document.querySelector(`[data-message-id="${id}"] .read-status`);
+        if (msgEl) {
+            msgEl.style.color = '#22c55e';
+            msgEl.innerHTML = '<i class="bi bi-check2-all"></i>';
+            msgEl.dataset.read = 'true';
+        }
+    });
+}
+
+// Mark messages as read via API
+function markMessagesAsRead() {
+    fetch('{{ route("messages.mark-read", $user) }}', {
+        method: 'POST',
+        headers: {
+            'X-CSRF-TOKEN': '{{ csrf_token() }}',
+            'Accept': 'application/json'
+        }
+    });
+}
+
+// Typing indicator functions
+function showTypingIndicator() {
+    document.getElementById('typing-indicator').classList.remove('d-none');
+    scrollToBottom();
+    clearTimeout(typingTimeout);
+    typingTimeout = setTimeout(hideTypingIndicator, 2000);
+}
+
+function hideTypingIndicator() {
+    document.getElementById('typing-indicator').classList.add('d-none');
+}
+
+// Send typing event when user types
+let lastTypingTime = 0;
+document.getElementById('message-input').addEventListener('input', function() {
+    const now = Date.now();
+    if (channel && now - lastTypingTime > 500) {
+        lastTypingTime = now;
+        channel.whisper('typing', { userId: currentUserId });
+    }
+});
 
 // Start trying to setup WebSocket
 setupWebSocket();
@@ -178,13 +282,16 @@ setupWebSocket();
 function appendMessage(message) {
     const messagesList = document.getElementById('messages-list');
 
-    // Check if message already exists (prevent duplicates)
-    if (document.querySelector(`[data-message-id="${message.id}"]`)) {
-        console.log('Message already displayed, skipping:', message.id);
-        return;
-    }
+    // Prevent duplicates
+    if (document.querySelector(`[data-message-id="${message.id}"]`)) return;
 
     const isOwnMessage = message.sender_id === currentUserId;
+    const isRead = message.is_read || false;
+    const readStatusHtml = isOwnMessage ? `
+        <span class="read-status" data-read="${isRead}" style="color: ${isRead ? '#22c55e' : 'inherit'};">
+            <i class="bi bi-check2${isRead ? '-all' : ''}"></i>
+        </span>
+    ` : '';
 
     const messageHtml = `
         <div class="mb-3 d-flex ${isOwnMessage ? 'justify-content-end' : 'justify-content-start'}" data-message-id="${message.id}">
@@ -199,8 +306,9 @@ function appendMessage(message) {
                      border-radius: 1rem;">
                     ${escapeHtml(message.message)}
                 </div>
-                <div class="small text-secondary mt-1">
+                <div class="small text-secondary mt-1 d-flex align-items-center gap-1">
                     ${formatTime(message.created_at)}
+                    ${readStatusHtml}
                 </div>
             </div>
         </div>
@@ -219,6 +327,8 @@ function formatTime(dateString) {
     const date = new Date(dateString);
     return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 }
+
+// Calls are handled via popup window - see layout.blade.php for global handler
 </script>
 @endpush
 

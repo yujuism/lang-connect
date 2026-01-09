@@ -10,6 +10,8 @@ use App\Http\Controllers\MessageController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\LeaderboardController;
 use App\Http\Controllers\LevelController;
+use App\Http\Controllers\CallController;
+use App\Http\Controllers\CanvasController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [HomeController::class, 'index'])->name('home');
@@ -47,6 +49,11 @@ Route::middleware('auth')->group(function () {
     // Reviews
     Route::post('/sessions/{session}/reviews', [ReviewController::class, 'store'])->name('reviews.store');
 
+    // Canvas (collaborative whiteboard)
+    Route::post('/sessions/{session}/canvas', [CanvasController::class, 'save'])->name('sessions.canvas.save');
+    Route::get('/sessions/{session}/canvas', [CanvasController::class, 'load'])->name('sessions.canvas.load');
+    Route::post('/sessions/{session}/canvas/broadcast', [CanvasController::class, 'broadcast'])->name('sessions.canvas.broadcast');
+
     // Achievements
     Route::get('/achievements', [AchievementController::class, 'index'])->name('achievements.index');
 
@@ -60,7 +67,16 @@ Route::middleware('auth')->group(function () {
     Route::get('/messages', [MessageController::class, 'index'])->name('messages.index');
     Route::get('/messages/{user}', [MessageController::class, 'show'])->name('messages.show');
     Route::post('/messages/{user}/send', [MessageController::class, 'send'])->name('messages.send');
+    Route::post('/messages/{user}/mark-read', [MessageController::class, 'markRead'])->name('messages.mark-read');
     Route::get('/messages/{user}/fetch', [MessageController::class, 'fetch'])->name('messages.fetch');
+
+    // Calls (Voice/Video)
+    Route::get('/call/{user}/window', [CallController::class, 'window'])->name('call.window');
+    Route::post('/call/{user}/initiate', [CallController::class, 'initiate'])->name('call.initiate');
+    Route::post('/call/{call}/accept', [CallController::class, 'accept'])->name('call.accept');
+    Route::post('/call/{call}/reject', [CallController::class, 'reject'])->name('call.reject');
+    Route::post('/call/{call}/end', [CallController::class, 'end'])->name('call.end');
+    Route::post('/call/{call}/signal', [CallController::class, 'signal'])->name('call.signal');
 
     // Notifications
     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
