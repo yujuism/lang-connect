@@ -12,7 +12,22 @@ All services run in a single pod managed by supervisord.
 
 ## First-Time Setup
 
-### 1. Deploy Infrastructure
+### 1. Create Secrets
+
+Copy the example and fill in real values:
+
+```bash
+cp k8s/infrastructure/secrets.yaml.example k8s/infrastructure/secrets.yaml
+# Edit secrets.yaml with actual passwords/keys
+```
+
+Generate values:
+- `APP_KEY`: `php artisan key:generate --show`
+- `REVERB_APP_KEY`: `openssl rand -hex 16`
+- `REVERB_APP_SECRET`: `openssl rand -hex 32`
+- `MYSQL_*_PASSWORD`: `openssl rand -base64 18`
+
+### 2. Deploy Infrastructure
 
 ```bash
 kubectl apply -f k8s/infrastructure/namespace.yaml
@@ -22,7 +37,7 @@ kubectl apply -f k8s/infrastructure/mysql-pvc.yaml
 kubectl apply -f k8s/infrastructure/mysql-deployment.yaml
 ```
 
-### 2. Create Registry Secret
+### 3. Create Registry Secret
 
 ```bash
 kubectl create secret docker-registry registry-secret \
@@ -32,7 +47,16 @@ kubectl create secret docker-registry registry-secret \
   -n langconnect
 ```
 
-### 3. Deploy App
+### 4. Configure GitLab CI Variables
+
+In GitLab > Settings > CI/CD > Variables, add:
+
+| Variable | Value |
+|----------|-------|
+| `VITE_REVERB_APP_KEY` | Same as `REVERB_APP_KEY` in secrets.yaml |
+| `VITE_REVERB_HOST` | `langconnect.cloudsynth.site` |
+
+### 5. Deploy App
 
 Push to `main` branch triggers CI/CD, or manually:
 
@@ -56,16 +80,14 @@ WebSocket is automatically handled - nginx proxies `/app/*` to Reverb internally
 The GitLab CI pipeline has 3 stages:
 
 1. **build**: Builds Docker image with Vite env vars baked in
-2. **infra**: Creates namespace/secrets if first deployment
+2. **infra**: Creates namespace if first deployment (secrets applied manually)
 3. **deploy**: Applies k8s manifests and restarts deployment
 
-### Build Args
+### Required CI Variables
 
-Vite environment variables must be passed at build time:
-- `VITE_REVERB_APP_KEY`
-- `VITE_REVERB_HOST`
-- `VITE_REVERB_PORT`
-- `VITE_REVERB_SCHEME`
+Set these in GitLab CI/CD settings:
+- `VITE_REVERB_APP_KEY` - Reverb public key
+- `VITE_REVERB_HOST` - WebSocket host domain
 
 ## Supervisord Services
 

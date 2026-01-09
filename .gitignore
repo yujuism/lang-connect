@@ -42,3 +42,4 @@ Thumbs.db
 /public/mix-manifest.json
 npm-debug.log
 yarn-error.log
+k8s/infrastructure/secrets.yaml
