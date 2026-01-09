@@ -19,11 +19,11 @@
         "vite": "^7.0.7"
     },
     "dependencies": {
+        "@tldraw/tldraw": "1.29.2",
         "@vitejs/plugin-react": "^5.1.2",
         "laravel-echo": "^2.2.6",
         "pusher-js": "^8.4.0",
         "react": "^18.3.1",
-        "react-dom": "^18.3.1",
-        "tldraw": "^4.2.3"
+        "react-dom": "^18.3.1"
     }
 }

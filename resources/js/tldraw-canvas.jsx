@@ -1,37 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { createRoot } from "react-dom/client";
-import { Tldraw, getSnapshot, loadSnapshot } from "tldraw";
-import "tldraw/tldraw.css";
-
-// Sanitize snapshot to fix null values that tldraw doesn't accept
-function sanitizeSnapshot(snapshot) {
-    if (!snapshot) return snapshot;
-
-    const sanitized = JSON.parse(JSON.stringify(snapshot));
-
-    // Fix null values in store records
-    if (sanitized.document?.store) {
-        for (const key in sanitized.document.store) {
-            const record = sanitized.document.store[key];
-
-            // Fix document.name being null
-            if (record.typeName === "document" && record.name === null) {
-                record.name = "";
-            }
-
-            // Fix shape props with null values (url, text, etc)
-            if (record.typeName === "shape" && record.props) {
-                for (const propKey in record.props) {
-                    if (record.props[propKey] === null) {
-                        record.props[propKey] = "";
-                    }
-                }
-            }
-        }
-    }
-
-    return sanitized;
-}
+import { Tldraw } from "@tldraw/tldraw";
 
 // Debounce utility
 function debounce(func, wait) {
@@ -55,19 +24,18 @@ function CollaborativeCanvas({
     initialData = null,
     csrfToken,
 }) {
-    const [editor, setEditor] = useState(null);
+    const [app, setApp] = useState(null);
     const [saveStatus, setSaveStatus] = useState("saved");
     const [isFollowing, setIsFollowing] = useState(false);
     const [partnerCursor, setPartnerCursor] = useState(null);
-    const [partnerViewport, setPartnerViewport] = useState(null);
     const echoChannelRef = useRef(null);
     const lastBroadcastRef = useRef(null);
-    const lastSnapshotRef = useRef(null);
+    const lastDocumentRef = useRef(null);
     const isLoadingRef = useRef(false);
 
     // Save canvas to backend (debounced)
     const saveToServer = useCallback(
-        async (snapshot) => {
+        async (document) => {
             if (isReadOnly || isLoadingRef.current) return;
 
             setSaveStatus("saving");
@@ -80,7 +48,7 @@ function CollaborativeCanvas({
                         "X-CSRF-TOKEN": csrfToken,
                         Accept: "application/json",
                     },
-                    body: JSON.stringify({ snapshot }),
+                    body: JSON.stringify({ snapshot: document }),
                 });
 
                 if (response.ok) {
@@ -102,11 +70,11 @@ function CollaborativeCanvas({
 
     // Broadcast changes to partner
     const broadcastToPartner = useCallback(
-        (snapshot) => {
+        (document) => {
             if (isReadOnly || !echoChannelRef.current || isLoadingRef.current)
                 return;
 
-            const serialized = JSON.stringify(snapshot);
+            const serialized = JSON.stringify(document);
             if (serialized === lastBroadcastRef.current) return;
             lastBroadcastRef.current = serialized;
 
@@ -116,7 +84,7 @@ function CollaborativeCanvas({
                     "Content-Type": "application/json",
                     "X-CSRF-TOKEN": csrfToken,
                 },
-                body: JSON.stringify({ snapshot }),
+                body: JSON.stringify({ snapshot: document }),
             }).catch(console.error);
         },
         [sessionId, csrfToken, isReadOnly]
@@ -135,18 +103,17 @@ function CollaborativeCanvas({
 
         // Listen for canvas changes from partner
         channel.listen(".canvas.changed", (event) => {
-            if (event.user_id === currentUserId || !editor) return;
+            if (event.user_id === currentUserId || !app) return;
 
             if (event.snapshot) {
                 try {
                     isLoadingRef.current = true;
-                    const sanitized = sanitizeSnapshot(event.snapshot);
-                    loadSnapshot(editor.store, sanitized);
+                    app.loadDocument(event.snapshot);
                     setTimeout(() => {
                         isLoadingRef.current = false;
                     }, 100);
                 } catch (e) {
-                    console.error("Error loading partner snapshot:", e);
+                    console.error("Error loading partner document:", e);
                     isLoadingRef.current = false;
                 }
             }
@@ -156,94 +123,78 @@ function CollaborativeCanvas({
         channel.listenForWhisper("cursor", (event) => {
             if (event.user_id === currentUserId) return;
             setPartnerCursor(event.cursor);
-            setPartnerViewport(event.viewport);
 
             // If following, move viewport to partner's position
-            if (isFollowing && editor && event.viewport) {
-                editor.setCamera({
-                    x: event.viewport.x,
-                    y: event.viewport.y,
-                    z: event.viewport.z,
-                });
+            if (isFollowing && app && event.viewport) {
+                app.setCamera(event.viewport);
             }
         });
 
         return () => {
             window.Echo.leave(`session.${sessionId}`);
         };
-    }, [sessionId, currentUserId, editor, isReadOnly, isFollowing]);
+    }, [sessionId, currentUserId, app, isReadOnly, isFollowing]);
 
     // Broadcast cursor position frequently
     useEffect(() => {
-        if (!editor || isReadOnly || !echoChannelRef.current) return;
+        if (!app || isReadOnly || !echoChannelRef.current) return;
 
         let lastCursorBroadcast = 0;
 
-        const handlePointerMove = () => {
+        const handlePointerMove = (info) => {
             const now = Date.now();
             if (now - lastCursorBroadcast < 50) return; // Throttle to 50ms
             lastCursorBroadcast = now;
 
-            const camera = editor.getCamera();
-            const pointer = editor.inputs.currentPagePoint;
+            const camera = app.getCamera();
+            const pointer = app.inputs?.currentPoint;
 
             if (pointer) {
                 echoChannelRef.current.whisper("cursor", {
                     user_id: currentUserId,
-                    cursor: { x: pointer.x, y: pointer.y },
-                    viewport: { x: camera.x, y: camera.y, z: camera.z },
+                    cursor: { x: pointer[0], y: pointer[1] },
+                    viewport: camera,
                 });
             }
         };
 
-        // Listen to store changes for cursor updates
-        const unsubscribe = editor.store.listen(handlePointerMove, {
-            source: "user",
-        });
-
-        // Also listen to pointer events directly
-        const container = document.getElementById("tldraw-container");
-        if (container) {
-            container.addEventListener("pointermove", handlePointerMove);
-        }
+        // Subscribe to pointer move events
+        app.on("pointer-move", handlePointerMove);
 
         return () => {
-            unsubscribe();
-            if (container) {
-                container.removeEventListener("pointermove", handlePointerMove);
-            }
+            app.off("pointer-move", handlePointerMove);
         };
-    }, [editor, currentUserId, isReadOnly]);
+    }, [app, currentUserId, isReadOnly]);
 
-    // Subscribe to store changes for autosave and live sync
+    // Subscribe to document changes for autosave and live sync
     useEffect(() => {
-        if (!editor) return;
+        if (!app) return;
 
         const handleChange = () => {
             if (isLoadingRef.current) return;
 
-            const snapshot = getSnapshot(editor.store);
-            const serialized = JSON.stringify(snapshot);
+            const document = app.document;
+            const serialized = JSON.stringify(document);
 
-            if (serialized === lastSnapshotRef.current) return;
-            lastSnapshotRef.current = serialized;
+            if (serialized === lastDocumentRef.current) return;
+            lastDocumentRef.current = serialized;
 
-            debouncedSave(snapshot);
-            debouncedBroadcast(snapshot);
+            debouncedSave(document);
+            debouncedBroadcast(document);
         };
 
-        const unsubscribe = editor.store.listen(handleChange, {
-            source: "user",
-            scope: "document",
-        });
+        // Listen to persist events (when document changes)
+        app.on("persist", handleChange);
 
-        return () => unsubscribe();
-    }, [editor, debouncedSave, debouncedBroadcast]);
+        return () => {
+            app.off("persist", handleChange);
+        };
+    }, [app, debouncedSave, debouncedBroadcast]);
 
-    // Handle editor mount
+    // Handle app mount
     const handleMount = useCallback(
-        (editorInstance) => {
-            setEditor(editorInstance);
+        (appInstance) => {
+            setApp(appInstance);
 
             // Load initial data if available
             if (initialData) {
@@ -253,13 +204,9 @@ function CollaborativeCanvas({
                             ? JSON.parse(initialData)
                             : initialData;
 
-                    if (
-                        parsed?.snapshot?.document &&
-                        parsed?.snapshot?.session
-                    ) {
+                    if (parsed?.snapshot) {
                         isLoadingRef.current = true;
-                        const sanitized = sanitizeSnapshot(parsed.snapshot);
-                        loadSnapshot(editorInstance.store, sanitized);
+                        appInstance.loadDocument(parsed.snapshot);
                         setTimeout(() => {
                             isLoadingRef.current = false;
                         }, 100);
@@ -273,7 +220,7 @@ function CollaborativeCanvas({
             }
 
             if (isReadOnly) {
-                editorInstance.updateInstanceState({ isReadonly: true });
+                appInstance.readOnly = true;
             }
         },
         [initialData, isReadOnly]
@@ -284,11 +231,11 @@ function CollaborativeCanvas({
 
     // Calculate partner cursor screen position
     const getPartnerCursorScreenPos = () => {
-        if (!editor || !partnerCursor) return null;
+        if (!app || !partnerCursor) return null;
 
-        const camera = editor.getCamera();
-        const screenX = (partnerCursor.x + camera.x) * camera.z;
-        const screenY = (partnerCursor.y + camera.y) * camera.z;
+        const camera = app.getCamera();
+        const screenX = (partnerCursor.x - camera.point[0]) * camera.zoom;
+        const screenY = (partnerCursor.y - camera.point[1]) * camera.zoom;
 
         return { x: screenX, y: screenY };
     };
@@ -302,7 +249,7 @@ function CollaborativeCanvas({
                 <div
                     style={{
                         position: "absolute",
-                        top: "0px",
+                        top: "10px",
                         left: "50%",
                         transform: "translateX(-50%)",
                         zIndex: 1000,
@@ -427,7 +374,14 @@ function CollaborativeCanvas({
                 </div>
             )}
 
-            <Tldraw onMount={handleMount} />
+            <Tldraw
+                onMount={handleMount}
+                showMenu={!isReadOnly}
+                showPages={false}
+                showZoom={true}
+                showStyles={!isReadOnly}
+                showTools={!isReadOnly}
+            />
 
             <style>{`
                 @keyframes pulse {
