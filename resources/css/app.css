@@ -1,3 +1,21 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Fix tldraw toolbar - prevent Tailwind reset from breaking it */
+.tl-container button,
+.tl-container [role="button"],
+.tlui-button,
+.tlui-toolbar button,
+.tlui-toolbar__inner button {
+    background-color: revert;
+    background-image: revert;
+    border: revert;
+    padding: revert;
+    color: revert;
+}
+
+/* Ensure tldraw icons are visible */
+.tl-container svg {
+    display: inline-block;
+}
