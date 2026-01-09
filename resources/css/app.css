@@ -1,27 +1,3 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-/* Isolate tldraw v1 from Tailwind resets */
-#tldraw-container {
-    isolation: isolate;
-}
-
-#tldraw-container button,
-#tldraw-container [type='button'] {
-    background-color: revert;
-    border: revert;
-    padding: revert;
-    cursor: revert;
-}
-
-#tldraw-container svg {
-    display: revert;
-    vertical-align: revert;
-}
-
-#tldraw-container input,
-#tldraw-container select {
-    border: revert;
-    padding: revert;
-}

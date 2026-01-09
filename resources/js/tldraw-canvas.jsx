@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import { createRoot } from "react-dom/client";
 import { Tldraw } from "@tldraw/tldraw";
 
-// Debounce utility
+// Debounce utility (for saving)
 function debounce(func, wait) {
     let timeout;
     return function executedFunction(...args) {
@@ -12,6 +12,25 @@ function debounce(func, wait) {
         };
         clearTimeout(timeout);
         timeout = setTimeout(later, wait);
+    };
+}
+
+// Throttle utility (for live sync - sends at regular intervals)
+function throttle(func, limit) {
+    let inThrottle;
+    let lastArgs;
+    return function executedFunction(...args) {
+        lastArgs = args;
+        if (!inThrottle) {
+            func(...args);
+            inThrottle = true;
+            setTimeout(() => {
+                inThrottle = false;
+                if (lastArgs) {
+                    func(...lastArgs);
+                }
+            }, limit);
+        }
     };
 }
 
@@ -28,12 +47,33 @@ function CollaborativeCanvas({
     const [saveStatus, setSaveStatus] = useState("saved");
     const [isFollowing, setIsFollowing] = useState(false);
     const [partnerCursor, setPartnerCursor] = useState(null);
+    const [partnerOnline, setPartnerOnline] = useState(false);
+    const [initialDocument, setInitialDocument] = useState(null);
     const echoChannelRef = useRef(null);
     const lastBroadcastRef = useRef(null);
     const lastDocumentRef = useRef(null);
     const isLoadingRef = useRef(false);
+    const partnerLastSeenRef = useRef(null);
 
-    // Save canvas to backend (debounced)
+    // Parse initial data on mount
+    useEffect(() => {
+        if (initialData) {
+            try {
+                const parsed =
+                    typeof initialData === "string"
+                        ? JSON.parse(initialData)
+                        : initialData;
+
+                if (parsed?.snapshot) {
+                    setInitialDocument(parsed.snapshot);
+                }
+            } catch (e) {
+                console.warn("Could not parse initial canvas data:", e.message);
+            }
+        }
+    }, [initialData]);
+
+    // Save canvas to backend
     const saveToServer = useCallback(
         async (document) => {
             if (isReadOnly || isLoadingRef.current) return;
@@ -64,9 +104,14 @@ function CollaborativeCanvas({
         [sessionId, csrfToken, isReadOnly]
     );
 
-    const debouncedSave = useCallback(debounce(saveToServer, 2000), [
-        saveToServer,
-    ]);
+    // Use refs to maintain stable debounced/throttled functions
+    const saveToServerRef = useRef(saveToServer);
+    saveToServerRef.current = saveToServer;
+
+    const debouncedSaveRef = useRef(
+        debounce((doc) => saveToServerRef.current(doc), 2000)
+    );
+    const debouncedSave = debouncedSaveRef.current;
 
     // Broadcast changes to partner
     const broadcastToPartner = useCallback(
@@ -90,9 +135,14 @@ function CollaborativeCanvas({
         [sessionId, csrfToken, isReadOnly]
     );
 
-    const debouncedBroadcast = useCallback(debounce(broadcastToPartner, 500), [
-        broadcastToPartner,
-    ]);
+    // Use throttle for live sync (100ms interval)
+    const broadcastToPartnerRef = useRef(broadcastToPartner);
+    broadcastToPartnerRef.current = broadcastToPartner;
+
+    const throttledBroadcastRef = useRef(
+        throttle((doc) => broadcastToPartnerRef.current(doc), 100)
+    );
+    const throttledBroadcast = throttledBroadcastRef.current;
 
     // Initialize WebSocket connection
     useEffect(() => {
@@ -123,108 +173,136 @@ function CollaborativeCanvas({
         channel.listenForWhisper("cursor", (event) => {
             if (event.user_id === currentUserId) return;
             setPartnerCursor(event.cursor);
+            partnerLastSeenRef.current = Date.now();
+            setPartnerOnline(true);
 
             // If following, move viewport to partner's position
             if (isFollowing && app && event.viewport) {
-                app.setCamera(event.viewport);
+                app.setCamera(event.viewport.point, event.viewport.zoom);
             }
         });
 
+        // Listen for partner presence heartbeat
+        channel.listenForWhisper("presence", (event) => {
+            if (event.user_id === currentUserId) return;
+            partnerLastSeenRef.current = Date.now();
+            setPartnerOnline(true);
+        });
+
+        // Send presence heartbeat every 3 seconds
+        const heartbeatInterval = setInterval(() => {
+            channel.whisper("presence", { user_id: currentUserId });
+        }, 3000);
+
+        // Send initial presence
+        channel.whisper("presence", { user_id: currentUserId });
+
+        // Check partner online status every 5 seconds
+        const onlineCheckInterval = setInterval(() => {
+            if (partnerLastSeenRef.current) {
+                const timeSinceLastSeen = Date.now() - partnerLastSeenRef.current;
+                setPartnerOnline(timeSinceLastSeen < 10000); // 10 seconds timeout
+            }
+        }, 5000);
+
         return () => {
+            clearInterval(heartbeatInterval);
+            clearInterval(onlineCheckInterval);
             window.Echo.leave(`session.${sessionId}`);
         };
     }, [sessionId, currentUserId, app, isReadOnly, isFollowing]);
 
-    // Broadcast cursor position frequently
-    useEffect(() => {
-        if (!app || isReadOnly || !echoChannelRef.current) return;
+    // Handle app mount - tldraw v1 callback
+    const handleMount = useCallback((appInstance) => {
+        setApp(appInstance);
+    }, []);
 
-        let lastCursorBroadcast = 0;
+    // Handle document change - tldraw v1 callback (fires on every change for live sync)
+    const handleChange = useCallback(
+        (appInstance, reason) => {
+            if (isLoadingRef.current || isReadOnly) return;
 
-        const handlePointerMove = (info) => {
-            const now = Date.now();
-            if (now - lastCursorBroadcast < 50) return; // Throttle to 50ms
-            lastCursorBroadcast = now;
+            // Broadcast live to partner
+            const document = appInstance.document;
+            throttledBroadcast(document);
+        },
+        [isReadOnly, throttledBroadcast]
+    );
 
-            const camera = app.getCamera();
-            const pointer = app.inputs?.currentPoint;
+    // Handle persist - tldraw v1 callback for saving
+    const handlePersist = useCallback(
+        (appInstance) => {
+            if (isLoadingRef.current || isReadOnly) return;
 
-            if (pointer) {
-                echoChannelRef.current.whisper("cursor", {
-                    user_id: currentUserId,
-                    cursor: { x: pointer[0], y: pointer[1] },
-                    viewport: camera,
-                });
-            }
-        };
-
-        // Subscribe to pointer move events
-        app.on("pointer-move", handlePointerMove);
-
-        return () => {
-            app.off("pointer-move", handlePointerMove);
-        };
-    }, [app, currentUserId, isReadOnly]);
-
-    // Subscribe to document changes for autosave and live sync
-    useEffect(() => {
-        if (!app) return;
-
-        const handleChange = () => {
-            if (isLoadingRef.current) return;
-
-            const document = app.document;
+            const document = appInstance.document;
             const serialized = JSON.stringify(document);
 
             if (serialized === lastDocumentRef.current) return;
             lastDocumentRef.current = serialized;
 
             debouncedSave(document);
-            debouncedBroadcast(document);
-        };
+            throttledBroadcast(document);
+        },
+        [debouncedSave, throttledBroadcast, isReadOnly]
+    );
 
-        // Listen to persist events (when document changes)
-        app.on("persist", handleChange);
+    // Handle presence change for cursor broadcasting
+    const handleChangePresence = useCallback(
+        (appInstance, presence) => {
+            if (isReadOnly || !echoChannelRef.current) return;
 
-        return () => {
-            app.off("persist", handleChange);
-        };
-    }, [app, debouncedSave, debouncedBroadcast]);
+            try {
+                const camera = appInstance.getPageState().camera;
+                const pointer = presence?.point;
 
-    // Handle app mount
-    const handleMount = useCallback(
-        (appInstance) => {
-            setApp(appInstance);
-
-            // Load initial data if available
-            if (initialData) {
-                try {
-                    const parsed =
-                        typeof initialData === "string"
-                            ? JSON.parse(initialData)
-                            : initialData;
-
-                    if (parsed?.snapshot) {
-                        isLoadingRef.current = true;
-                        appInstance.loadDocument(parsed.snapshot);
-                        setTimeout(() => {
-                            isLoadingRef.current = false;
-                        }, 100);
-                    }
-                } catch (e) {
-                    console.warn(
-                        "Could not load initial canvas data:",
-                        e.message
-                    );
+                if (pointer) {
+                    echoChannelRef.current.whisper("cursor", {
+                        user_id: currentUserId,
+                        cursor: { x: pointer[0], y: pointer[1] },
+                        viewport: { point: camera.point, zoom: camera.zoom },
+                    });
                 }
-            }
-
-            if (isReadOnly) {
-                appInstance.readOnly = true;
+            } catch (e) {
+                // Ignore errors
             }
         },
-        [initialData, isReadOnly]
+        [currentUserId, isReadOnly]
     );
+
+    // Direct pointer tracking for cursor sync
+    const handlePointerMove = useCallback(
+        (e) => {
+            if (isReadOnly || !echoChannelRef.current || !app) return;
+
+            try {
+                const container = e.currentTarget;
+                const rect = container.getBoundingClientRect();
+                const camera = app.getPageState().camera;
+
+                // Convert screen position to canvas position
+                const x = (e.clientX - rect.left) / camera.zoom - camera.point[0];
+                const y = (e.clientY - rect.top) / camera.zoom - camera.point[1];
+
+                echoChannelRef.current.whisper("cursor", {
+                    user_id: currentUserId,
+                    cursor: { x, y },
+                    viewport: { point: camera.point, zoom: camera.zoom },
+                });
+            } catch (e) {
+                // Ignore errors
+            }
+        },
+        [app, currentUserId, isReadOnly]
+    );
+
+    // Throttled pointer move handler
+    const handlePointerMoveRef = useRef(handlePointerMove);
+    handlePointerMoveRef.current = handlePointerMove;
+
+    const throttledPointerMoveRef = useRef(
+        throttle((e) => handlePointerMoveRef.current(e), 50)
+    );
+    const throttledPointerMove = throttledPointerMoveRef.current;
 
     // Toggle follow mode
     const toggleFollow = () => setIsFollowing(!isFollowing);
@@ -233,17 +311,23 @@ function CollaborativeCanvas({
     const getPartnerCursorScreenPos = () => {
         if (!app || !partnerCursor) return null;
 
-        const camera = app.getCamera();
-        const screenX = (partnerCursor.x - camera.point[0]) * camera.zoom;
-        const screenY = (partnerCursor.y - camera.point[1]) * camera.zoom;
-
-        return { x: screenX, y: screenY };
+        try {
+            const camera = app.getPageState().camera;
+            const screenX = (partnerCursor.x + camera.point[0]) * camera.zoom;
+            const screenY = (partnerCursor.y + camera.point[1]) * camera.zoom;
+            return { x: screenX, y: screenY };
+        } catch (e) {
+            return null;
+        }
     };
 
     const cursorScreenPos = getPartnerCursorScreenPos();
 
     return (
-        <div style={{ height: "100%", width: "100%", position: "relative" }}>
+        <div
+            style={{ height: "100%", width: "100%", position: "relative" }}
+            onPointerMove={throttledPointerMove}
+        >
             {/* Control bar - positioned at top center */}
             {!isReadOnly && (
                 <div
@@ -307,7 +391,7 @@ function CollaborativeCanvas({
                     <span
                         style={{
                             fontSize: "12px",
-                            color: partnerCursor ? "#3b82f6" : "#9ca3af",
+                            color: partnerOnline ? "#3b82f6" : "#9ca3af",
                             display: "flex",
                             alignItems: "center",
                             gap: "6px",
@@ -318,15 +402,15 @@ function CollaborativeCanvas({
                                 width: "8px",
                                 height: "8px",
                                 borderRadius: "50%",
-                                background: partnerCursor
+                                background: partnerOnline
                                     ? "#22c55e"
                                     : "#d1d5db",
-                                animation: partnerCursor
+                                animation: partnerOnline
                                     ? "pulse 2s infinite"
                                     : "none",
                             }}
                         ></span>
-                        {partnerCursor
+                        {partnerOnline
                             ? `${partnerName} is here`
                             : `${partnerName} offline`}
                     </span>
@@ -375,12 +459,17 @@ function CollaborativeCanvas({
             )}
 
             <Tldraw
+                {...(initialDocument ? { document: initialDocument } : {})}
                 onMount={handleMount}
+                onChange={handleChange}
+                onPersist={handlePersist}
+                onChangePresence={handleChangePresence}
                 showMenu={!isReadOnly}
                 showPages={false}
                 showZoom={true}
                 showStyles={!isReadOnly}
                 showTools={!isReadOnly}
+                readOnly={isReadOnly}
             />
 
             <style>{`
