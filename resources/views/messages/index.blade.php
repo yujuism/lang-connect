@@ -16,9 +16,14 @@
                 <a href="{{ route('messages.show', $conversation->user) }}"
                    class="d-flex align-items-center p-4 text-decoration-none border-bottom hover-bg"
                    style="color: var(--text-primary); transition: background 0.2s;">
-                    <div class="rounded-circle d-flex align-items-center justify-content-center me-3"
-                         style="width: 60px; height: 60px; background: linear-gradient(135deg, var(--primary-color), var(--primary-dark)); color: white; font-size: 1.5rem; font-weight: bold; flex-shrink: 0;">
-                        {{ substr($conversation->user->name, 0, 1) }}
+                    <div class="position-relative me-3" style="flex-shrink: 0;">
+                        <div class="rounded-circle d-flex align-items-center justify-content-center"
+                             style="width: 60px; height: 60px; background: linear-gradient(135deg, var(--primary-color), var(--primary-dark)); color: white; font-size: 1.5rem; font-weight: bold;">
+                            {{ substr($conversation->user->name, 0, 1) }}
+                        </div>
+                        <span class="online-dot position-absolute rounded-circle border border-2 border-white"
+                              data-user-id="{{ $conversation->user->id }}"
+                              style="width: 16px; height: 16px; background: #6c757d; bottom: 0; right: 0;"></span>
                     </div>
                     <div class="flex-grow-1">
                         <div class="d-flex justify-content-between align-items-start">
@@ -55,4 +60,19 @@
     background: var(--bg-secondary) !important;
 }
 </style>
+
+@push('scripts')
+<script>
+function updateOnlineIndicators() {
+    document.querySelectorAll('.online-dot').forEach(dot => {
+        const userId = parseInt(dot.dataset.userId);
+        const isOnline = window.isUserOnline && window.isUserOnline(userId);
+        dot.style.background = isOnline ? '#22c55e' : '#6c757d';
+    });
+}
+
+window.addEventListener('online-users-updated', updateOnlineIndicators);
+setTimeout(updateOnlineIndicators, 500);
+</script>
+@endpush
 @endsection

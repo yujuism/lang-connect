@@ -10,6 +10,7 @@ use App\Http\Controllers\MessageController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\LeaderboardController;
 use App\Http\Controllers\LevelController;
+use App\Http\Controllers\CallController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [HomeController::class, 'index'])->name('home');
@@ -60,7 +61,15 @@ Route::middleware('auth')->group(function () {
     Route::get('/messages', [MessageController::class, 'index'])->name('messages.index');
     Route::get('/messages/{user}', [MessageController::class, 'show'])->name('messages.show');
     Route::post('/messages/{user}/send', [MessageController::class, 'send'])->name('messages.send');
+    Route::post('/messages/{user}/mark-read', [MessageController::class, 'markRead'])->name('messages.mark-read');
     Route::get('/messages/{user}/fetch', [MessageController::class, 'fetch'])->name('messages.fetch');
+
+    // Calls (Voice/Video)
+    Route::post('/call/{user}/initiate', [CallController::class, 'initiate'])->name('call.initiate');
+    Route::post('/call/{call}/accept', [CallController::class, 'accept'])->name('call.accept');
+    Route::post('/call/{call}/reject', [CallController::class, 'reject'])->name('call.reject');
+    Route::post('/call/{call}/end', [CallController::class, 'end'])->name('call.end');
+    Route::post('/call/{call}/signal', [CallController::class, 'signal'])->name('call.signal');
 
     // Notifications
     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');

@@ -14,15 +14,10 @@ import Pusher from 'pusher-js';
 
 window.Pusher = Pusher;
 
-try {
-    console.log('Initializing Echo with config:', {
-        broadcaster: 'reverb',
-        key: import.meta.env.VITE_REVERB_APP_KEY,
-        wsHost: import.meta.env.VITE_REVERB_HOST,
-        wsPort: import.meta.env.VITE_REVERB_PORT,
-        scheme: import.meta.env.VITE_REVERB_SCHEME,
-    });
+// Track online users globally
+window.onlineUsers = new Set();
 
+try {
     window.Echo = new Echo({
         broadcaster: 'reverb',
         key: import.meta.env.VITE_REVERB_APP_KEY,
@@ -33,8 +28,25 @@ try {
         enabledTransports: ['ws', 'wss'],
     });
 
-    console.log('✅ Echo initialized successfully:', window.Echo);
+    // Join presence channel to track online users
+    window.Echo.join('online')
+        .here((users) => {
+            window.onlineUsers = new Set(users.map(u => u.id));
+            window.dispatchEvent(new CustomEvent('online-users-updated'));
+        })
+        .joining((user) => {
+            window.onlineUsers.add(user.id);
+            window.dispatchEvent(new CustomEvent('online-users-updated'));
+        })
+        .leaving((user) => {
+            window.onlineUsers.delete(user.id);
+            window.dispatchEvent(new CustomEvent('online-users-updated'));
+        });
 } catch (error) {
-    console.error('❌ Failed to initialize Echo:', error);
     window.Echo = null;
 }
+
+// Helper function to check if a user is online
+window.isUserOnline = function(userId) {
+    return window.onlineUsers.has(userId);
+};

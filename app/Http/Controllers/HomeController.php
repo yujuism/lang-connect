@@ -52,7 +52,7 @@ class HomeController extends Controller
             ->orderBy('users.name')
             ->select('users.*');
 
-        $users = $query->paginate(20);
+        $users = $query->paginate(12);
         $languages = Language::orderBy('name')->get();
 
         return view('members', compact('users', 'languages'));
