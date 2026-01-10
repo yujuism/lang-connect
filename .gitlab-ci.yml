@@ -38,15 +38,12 @@ infra:
         kubectl apply -f k8s/infrastructure/namespace.yaml
         kubectl apply -f k8s/infrastructure/limitrange.yaml
         # Note: secrets.yaml must be applied manually (not in repo)
-        kubectl apply -f k8s/infrastructure/mysql-pvc.yaml
-        kubectl apply -f k8s/infrastructure/mysql-deployment.yaml
+        # Database is shared: shared-mysql.shared-db.svc.cluster.local
         kubectl create secret docker-registry registry-secret \
           --docker-server=$REGISTRY \
           --docker-username=gitlab-ci-token \
           --docker-password=$CI_JOB_TOKEN \
           -n langconnect
-        echo "Waiting for MySQL to be ready..."
-        kubectl wait --for=condition=available deployment/mysql -n langconnect --timeout=120s
       else
         echo "Infrastructure already exists, skipping..."
       fi
