@@ -58,7 +58,7 @@ In GitLab > Settings > CI/CD > Variables, add:
 | `MINIO_ACCESS_KEY` | MinIO access key |
 | `MINIO_SECRET_KEY` | MinIO secret key (masked) |
 | `MINIO_BUCKET` | `langconnect-pdfs` |
-| `MINIO_ENDPOINT` | `http://minio.minio.svc.cluster.local:9000` |
+| `MINIO_ENDPOINT` | `http://cloudsynth.site:9000` |
 | `MINIO_URL` | `https://s3.cloudsynth.site` |
 
 ### 5. Deploy App
@@ -166,7 +166,7 @@ MinIO is used for S3-compatible PDF storage. Required environment variables:
 | `MINIO_ACCESS_KEY` | MinIO access key | `langconnect` |
 | `MINIO_SECRET_KEY` | MinIO secret key | `your-secret-key` |
 | `MINIO_BUCKET` | Bucket name | `langconnect-pdfs` |
-| `MINIO_ENDPOINT` | Internal MinIO endpoint | `http://minio.minio.svc.cluster.local:9000` |
+| `MINIO_ENDPOINT` | MinIO API endpoint | `http://cloudsynth.site:9000` |
 | `MINIO_URL` | Public URL for PDF access | `https://s3.cloudsynth.site` |
 
 Add these to your k8s secrets and GitLab CI variables.
