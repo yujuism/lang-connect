@@ -31,6 +31,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::post('/profile/languages', [ProfileController::class, 'updateLanguages'])->name('profile.update-languages');
+    Route::post('/api/user/recording-preference', [ProfileController::class, 'updateRecordingPreference'])->name('profile.update-recording-preference');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
     // Learning Requests

@@ -95,6 +95,30 @@
                     </div>
                 </div>
 
+                <div class="mb-4">
+                    <label class="form-label fw-semibold" style="color: var(--text-primary);">
+                        <i class="bi bi-record-circle"></i> Call Recording
+                    </label>
+                    <select class="form-select @error('recording_preference') is-invalid @enderror" id="recording_preference" name="recording_preference"
+                            style="padding: 0.75rem; border-radius: 0.5rem; border: 1px solid var(--border-color);">
+                        <option value="ask" {{ old('recording_preference', $user->recording_preference ?? 'ask') === 'ask' ? 'selected' : '' }}>
+                            Ask me each time
+                        </option>
+                        <option value="always" {{ old('recording_preference', $user->recording_preference ?? 'ask') === 'always' ? 'selected' : '' }}>
+                            Always record calls
+                        </option>
+                        <option value="never" {{ old('recording_preference', $user->recording_preference ?? 'ask') === 'never' ? 'selected' : '' }}>
+                            Never record calls
+                        </option>
+                    </select>
+                    @error('recording_preference')
+                        <div class="invalid-feedback">{{ $message }}</div>
+                    @enderror
+                    <div class="form-text text-secondary small">
+                        <i class="bi bi-info-circle"></i> Recorded calls are transcribed and analyzed to help track your learning progress
+                    </div>
+                </div>
+
                 <button type="submit" class="btn btn-primary" style="padding: 0.75rem 2rem; font-weight: 600;">
                     <i class="bi bi-save"></i> Save Changes
                 </button>

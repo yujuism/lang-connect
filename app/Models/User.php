@@ -26,6 +26,7 @@ class User extends Authenticatable
         'profile_photo',
         'timezone',
         'email_notifications_enabled',
+        'recording_preference',
     ];
 
     /**

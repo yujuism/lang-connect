@@ -110,6 +110,7 @@ class CallController extends Controller
             'callId' => $callId,
             'isCaller' => $isCaller,
             'autoAccept' => $autoAccept,
+            'recordingPreference' => auth()->user()->recording_preference ?? 'ask',
         ]);
     }
 

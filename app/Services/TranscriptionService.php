@@ -45,7 +45,8 @@ class TranscriptionService
         file_put_contents($tempFile, $disk->get($audioPath));
 
         try {
-            $response = Http::timeout(300) // 5 minutes for long files
+            /** @var \Illuminate\Http\Client\Response $response */
+            $response = Http::timeout(300)
                 ->withHeaders([
                     'Authorization' => "Bearer {$this->apiKey}",
                 ])
@@ -127,9 +128,9 @@ class TranscriptionService
             throw new \Exception("File not found: {$localPath}");
         }
 
-        // Use provided filename or fallback to basename of path
         $uploadFilename = $filename ?? basename($localPath);
 
+        /** @var \Illuminate\Http\Client\Response $response */
         $response = Http::timeout(300)
             ->withHeaders([
                 'Authorization' => "Bearer {$this->apiKey}",

@@ -311,6 +311,31 @@
         </div>
     </div>
 
+    <!-- Recording Prompt Overlay -->
+    <div id="recording-prompt-overlay" class="incoming-overlay d-none">
+        <div class="text-center" style="max-width: 320px;">
+            <div class="mb-4">
+                <i class="bi bi-record-circle text-danger" style="font-size: 4rem;"></i>
+            </div>
+            <h3 class="mb-2">Record this call?</h3>
+            <p class="mb-4 text-secondary">Recording enables transcription and AI analysis to help track your learning progress.</p>
+            <div class="d-flex gap-3 justify-content-center mb-3">
+                <button class="control-btn control-btn-secondary" onclick="declineRecording()" title="Don't Record">
+                    <i class="bi bi-x-lg" style="font-size: 1.25rem;"></i>
+                </button>
+                <button class="control-btn" style="background: #22c55e;" onclick="acceptRecording()" title="Start Recording">
+                    <i class="bi bi-record-circle" style="font-size: 1.25rem;"></i>
+                </button>
+            </div>
+            <div class="form-check text-start" style="display: inline-block;">
+                <input class="form-check-input" type="checkbox" id="remember-recording-choice">
+                <label class="form-check-label text-secondary small" for="remember-recording-choice">
+                    Remember my choice
+                </label>
+            </div>
+        </div>
+    </div>
+
     <!-- Main Call Interface -->
     <div class="call-container">
         <div class="call-header">
@@ -344,6 +369,9 @@
             <button class="control-btn control-btn-secondary" id="toggle-video-btn" onclick="toggleVideo()" title="Toggle Video">
                 <i class="bi bi-camera-video-fill" style="font-size: 1.25rem;"></i>
             </button>
+            <button class="control-btn control-btn-secondary" id="toggle-record-btn" onclick="toggleRecording()" title="Toggle Recording">
+                <i class="bi bi-record-circle" style="font-size: 1.25rem;"></i>
+            </button>
             <button class="control-btn control-btn-danger" onclick="endCall()" title="End Call">
                 <i class="bi bi-telephone-x-fill" style="font-size: 1.5rem;"></i>
             </button>
@@ -360,6 +388,9 @@
         const initialCallId = {{ $callId ?? 'null' }};
         const isCaller = {{ $isCaller ? 'true' : 'false' }};
         const autoAccept = {{ ($autoAccept ?? false) ? 'true' : 'false' }};
+        let recordingPreference = '{{ $recordingPreference ?? 'ask' }}';
+        let isRecording = false;
+        let recordingEnabled = false;
 
         let currentCall = initialCallId ? { id: initialCallId, type: initialCallType || 'voice', isCaller: isCaller } : null;
         let peerConnection = null;
@@ -552,8 +583,8 @@
                     if (remoteStream && remoteStream.getVideoTracks().length > 0) {
                         document.getElementById('call-info').classList.add('d-none');
                     }
-                    // Start recording for transcription
-                    setTimeout(() => startRecording(), 1000);
+                    // Handle recording based on preference
+                    setTimeout(() => handleRecordingPreference(), 1000);
                 } else if (state === 'failed') {
                     console.log('Connection failed');
                     endCall();
@@ -920,9 +951,103 @@
             cleanup();
         });
 
+        // Recording Preference Handling
+        function handleRecordingPreference() {
+            if (recordingPreference === 'always') {
+                recordingEnabled = true;
+                startRecording();
+                updateRecordButtonState();
+            } else if (recordingPreference === 'never') {
+                recordingEnabled = false;
+                updateRecordButtonState();
+            } else {
+                // 'ask' - show prompt
+                showRecordingPrompt();
+            }
+        }
+
+        function showRecordingPrompt() {
+            document.getElementById('recording-prompt-overlay').classList.remove('d-none');
+        }
+
+        function hideRecordingPrompt() {
+            document.getElementById('recording-prompt-overlay').classList.add('d-none');
+        }
+
+        async function acceptRecording() {
+            const rememberChoice = document.getElementById('remember-recording-choice').checked;
+            hideRecordingPrompt();
+            recordingEnabled = true;
+            startRecording();
+            updateRecordButtonState();
+
+            if (rememberChoice) {
+                await saveRecordingPreference('always');
+            }
+        }
+
+        async function declineRecording() {
+            const rememberChoice = document.getElementById('remember-recording-choice').checked;
+            hideRecordingPrompt();
+            recordingEnabled = false;
+            updateRecordButtonState();
+
+            if (rememberChoice) {
+                await saveRecordingPreference('never');
+            }
+        }
+
+        function toggleRecording() {
+            if (isRecording) {
+                stopRecording();
+                isRecording = false;
+                recordingEnabled = false;
+            } else {
+                recordingEnabled = true;
+                startRecording();
+            }
+            updateRecordButtonState();
+        }
+
+        function updateRecordButtonState() {
+            const btn = document.getElementById('toggle-record-btn');
+            if (isRecording) {
+                btn.style.background = '#dc2626';
+                btn.innerHTML = '<i class="bi bi-stop-circle" style="font-size: 1.25rem;"></i>';
+                btn.title = 'Stop Recording';
+            } else if (recordingEnabled) {
+                btn.style.background = '#dc2626';
+                btn.innerHTML = '<i class="bi bi-record-circle" style="font-size: 1.25rem;"></i>';
+                btn.title = 'Recording...';
+            } else {
+                btn.style.background = '#4b5563';
+                btn.innerHTML = '<i class="bi bi-record-circle" style="font-size: 1.25rem;"></i>';
+                btn.title = 'Start Recording';
+            }
+        }
+
+        async function saveRecordingPreference(preference) {
+            try {
+                await fetch('/api/user/recording-preference', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ preference: preference })
+                });
+                recordingPreference = preference;
+            } catch (error) {
+                console.error('Error saving recording preference:', error);
+            }
+        }
+
         // Audio Recording Functions
         function startRecording() {
             if (!localStream || mediaRecorder) return;
+            isRecording = true;
+            updateRecordButtonState();
 
             try {
                 // Create a mixed stream with local and remote audio
@@ -1001,6 +1126,9 @@
             if (mediaRecorder && mediaRecorder.state !== 'inactive') {
                 mediaRecorder.stop();
             }
+            mediaRecorder = null;
+            isRecording = false;
+            updateRecordButtonState();
         }
 
         async function uploadChunk() {

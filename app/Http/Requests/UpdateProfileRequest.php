@@ -27,6 +27,7 @@ class UpdateProfileRequest extends FormRequest
             'timezone' => 'nullable|string|max:50',
             'avatar' => 'nullable|image|max:2048',
             'email_notifications_enabled' => 'nullable|boolean',
+            'recording_preference' => 'nullable|in:ask,always,never',
         ];
     }
 

@@ -96,6 +96,27 @@ class ProfileController extends Controller
     }
 
     /**
+     * Update recording preference
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function updateRecordingPreference(Request $request)
+    {
+        $request->validate([
+            'preference' => 'required|in:ask,always,never',
+        ]);
+
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
+        $user->update([
+            'recording_preference' => $request->input('preference'),
+        ]);
+
+        return response()->json(['success' => true]);
+    }
+
+    /**
      * Delete user account
      *
      * @param Request $request
