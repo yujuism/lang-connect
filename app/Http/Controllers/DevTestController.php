@@ -33,14 +33,14 @@ class DevTestController extends Controller
         $originalFilename = $file->getClientOriginalName();
 
         try {
-            // Step 1: Transcribe (pass original filename for proper extension detection)
+            // Transcribe
             $transcriptResult = $transcriptionService->transcribeFile(
                 $tempPath,
                 $request->input('language'),
                 $originalFilename
             );
 
-            // Step 2: Analyze (if transcript is not empty)
+            // Analyze
             $analysisResult = null;
             if (!empty($transcriptResult['transcript'])) {
                 $analysisResult = $analysisService->analyzeTranscript(

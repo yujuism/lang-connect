@@ -199,7 +199,7 @@ LangConnect uses Groq for AI-powered features:
 |----------|-------------|---------|
 | `GROQ_API_KEY` | Groq API key | `gsk_xxxxx...` |
 
-Get your API key at [console.groq.com](https://console.groq.com)
+API key: [console.groq.com](https://console.groq.com)
 
 ### Groq Pricing
 
