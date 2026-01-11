@@ -127,7 +127,7 @@
     @yield('extra-css')
 
     <!-- Vite Assets (includes WebSocket / Laravel Echo) -->
-    @vite(['resources/css/app.css', 'resources/js/app.js'])
+    @vite(['resources/js/app.js'])
 </head>
 <body>
     <!-- Navigation -->

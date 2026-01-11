@@ -2,11 +2,15 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Fix Bootstrap navbar - Tailwind preflight resets these */
+/* Fix Bootstrap navbar - Tailwind utilities override Bootstrap */
+.navbar-collapse.collapse {
+    visibility: visible !important;
+}
 @media (min-width: 992px) {
     .navbar-expand-lg .navbar-collapse {
         display: flex !important;
         flex-basis: auto;
+        visibility: visible !important;
     }
     .navbar-expand-lg .navbar-nav {
         flex-direction: row;
