@@ -38,8 +38,10 @@ class PdfController extends Controller
             $this->minio()->delete($session->pdf_path);
         }
 
-        // Store new PDF
-        $path = $request->file('pdf')->store('session-pdfs', 'minio');
+        // Store new PDF with a safe filename (avoids issues with non-ASCII characters)
+        $file = $request->file('pdf');
+        $safeName = 'session-' . $session->id . '-' . time() . '.pdf';
+        $path = $file->storeAs('session-pdfs', $safeName, 'minio');
 
         $session->update([
             'pdf_path' => $path,
