@@ -60,6 +60,7 @@ In GitLab > Settings > CI/CD > Variables, add:
 | `MINIO_BUCKET` | `langconnect-pdfs` |
 | `MINIO_ENDPOINT` | `https://s3.cloudsynth.site` |
 | `MINIO_URL` | `https://s3.cloudsynth.site` |
+| `GROQ_API_KEY` | Groq API key (masked) |
 
 ### 5. Deploy App
 
@@ -94,6 +95,7 @@ Set these in GitLab CI/CD settings (see table in section 4 for full list):
 - `VITE_REVERB_APP_KEY` - Reverb public key (for frontend build)
 - `VITE_REVERB_HOST` - WebSocket host domain (for frontend build)
 - `MINIO_*` - MinIO credentials (for PDF storage)
+- `GROQ_API_KEY` - Groq API key (for voice transcription & AI analysis)
 
 ## Supervisord Services
 
@@ -170,6 +172,60 @@ MinIO is used for S3-compatible PDF storage. Required environment variables:
 | `MINIO_URL` | Public URL for PDF access | `https://s3.cloudsynth.site` |
 
 Add these to your k8s secrets and GitLab CI variables.
+
+## AI Services (Voice Transcription & Session Analysis)
+
+LangConnect uses Groq for AI-powered features:
+- **Whisper** (`whisper-large-v3`) - Voice transcription during calls
+- **Llama 3.3 70B** (`llama-3.3-70b-versatile`) - Session analysis and summaries
+
+### Features
+- Real-time call recording (mixed local + remote audio)
+- Automatic chunking (15-minute segments)
+- Voice transcription via Groq Whisper API
+- Session analysis: summary, topics, key phrases, vocabulary extraction
+- Auto-generated flashcards from extracted vocabulary
+
+### How it works
+1. Call starts → `startRecording()` mixes local + remote audio via AudioContext
+2. Every 15 min (or call ends) → chunk uploaded to `/api/transcription/upload-chunk`
+3. `TranscriptController` saves audio to MinIO → dispatches `TranscribeAudio` job
+4. Job calls Groq Whisper API → saves transcript to `session_transcripts` table
+5. After session ends → `SessionAnalysisService` analyzes full transcript with Llama
+
+### Configuration
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `GROQ_API_KEY` | Groq API key | `gsk_xxxxx...` |
+
+Get your API key at [console.groq.com](https://console.groq.com)
+
+### Groq Pricing
+
+| Tier | Whisper | Llama 3.3 70B | Best For |
+|------|---------|---------------|----------|
+| **Free** | ~2 hrs audio/day | ~6K tokens/min | Development |
+| **Dev ($20/mo)** | Higher limits | ~30K tokens/min | Production |
+
+### Testing Transcription
+
+1. **Dev test page**: `http://localhost:8000/dev/test-transcribe` (requires login)
+2. Upload an audio file (mp3, wav, webm, m4a, ogg)
+3. View transcription + AI analysis results
+
+### Backend Files
+- `app/Services/TranscriptionService.php` - Groq Whisper integration
+- `app/Services/SessionAnalysisService.php` - Llama analysis
+- `app/Jobs/TranscribeAudio.php` - Background transcription job
+- `app/Http/Controllers/TranscriptController.php` - Upload endpoints
+- `resources/views/call/window.blade.php` - Call recording logic
+
+### Database Tables
+- `session_transcripts` - Audio chunks and transcription status
+- `session_analyses` - Full transcript, summary, topics, vocabulary
+- `flashcards` - Auto-generated flashcards from vocabulary
+- `vocabulary_entries` - Word usage tracking
 
 ## Commands
 

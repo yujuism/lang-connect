@@ -7,9 +7,18 @@ use App\Models\PracticeSession;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Filesystem\FilesystemAdapter;
 
 class PdfController extends Controller
 {
+    /**
+     * Get the MinIO storage disk.
+     */
+    private function minio(): FilesystemAdapter
+    {
+        /** @var FilesystemAdapter */
+        return Storage::disk('minio');
+    }
     /**
      * Upload PDF for a session.
      */
@@ -26,7 +35,7 @@ class PdfController extends Controller
 
         // Delete old PDF if exists
         if ($session->pdf_path) {
-            Storage::disk('minio')->delete($session->pdf_path);
+            $this->minio()->delete($session->pdf_path);
         }
 
         // Store new PDF
@@ -39,7 +48,7 @@ class PdfController extends Controller
 
         return response()->json([
             'success' => true,
-            'pdf_url' => Storage::disk('minio')->url($path),
+            'pdf_url' => $this->minio()->url($path),
         ]);
     }
 
@@ -55,7 +64,7 @@ class PdfController extends Controller
 
         return response()->json([
             'success' => true,
-            'pdf_url' => $session->pdf_path ? Storage::disk('minio')->url($session->pdf_path) : null,
+            'pdf_url' => $session->pdf_path ? $this->minio()->url($session->pdf_path) : null,
             'highlights' => $session->pdf_highlights ?? [],
             'drawings' => $session->pdf_drawings ?? [],
         ]);
@@ -161,7 +170,7 @@ class PdfController extends Controller
         }
 
         if ($session->pdf_path) {
-            Storage::disk('minio')->delete($session->pdf_path);
+            $this->minio()->delete($session->pdf_path);
         }
 
         $session->update([

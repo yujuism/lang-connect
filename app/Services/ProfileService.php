@@ -3,6 +3,8 @@
 namespace App\Services;
 
 use App\Models\User;
+use App\Models\VocabularyEntry;
+use App\Models\Flashcard;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
@@ -42,6 +44,8 @@ class ProfileService
             'avgRatings' => $this->calculateAverageRatings($user),
             'achievements' => $this->getUserAchievements($user),
             'recentSessionsCount' => $this->getRecentSessionsCount($user),
+            'vocabularyStats' => $this->getVocabularyStats($user),
+            'flashcardStats' => $this->getFlashcardStats($user),
         ];
     }
 
@@ -165,6 +169,63 @@ class ProfileService
                 ]);
             }
         });
+    }
+
+    /**
+     * Get vocabulary statistics for a user
+     *
+     * @param User $user
+     * @return array
+     */
+    public function getVocabularyStats(User $user): array
+    {
+        $totalWords = VocabularyEntry::where('user_id', $user->id)->count();
+
+        $byLanguage = VocabularyEntry::where('user_id', $user->id)
+            ->selectRaw('language, COUNT(*) as count')
+            ->groupBy('language')
+            ->pluck('count', 'language')
+            ->toArray();
+
+        $recentWords = VocabularyEntry::where('user_id', $user->id)
+            ->where('created_at', '>=', now()->subDays(7))
+            ->count();
+
+        $frequentWords = VocabularyEntry::where('user_id', $user->id)
+            ->where('times_used', '>', 1)
+            ->count();
+
+        return [
+            'total' => $totalWords,
+            'by_language' => $byLanguage,
+            'recent_week' => $recentWords,
+            'frequent' => $frequentWords,
+        ];
+    }
+
+    /**
+     * Get flashcard statistics for a user
+     *
+     * @param User $user
+     * @return array
+     */
+    public function getFlashcardStats(User $user): array
+    {
+        $stats = Flashcard::where('user_id', $user->id)
+            ->selectRaw('COUNT(*) as total')
+            ->selectRaw('SUM(CASE WHEN mastery_level = 0 THEN 1 ELSE 0 END) as new_count')
+            ->selectRaw('SUM(CASE WHEN mastery_level BETWEEN 1 AND 2 THEN 1 ELSE 0 END) as learning_count')
+            ->selectRaw('SUM(CASE WHEN mastery_level >= 3 THEN 1 ELSE 0 END) as mastered_count')
+            ->selectRaw('SUM(CASE WHEN next_review_at <= NOW() THEN 1 ELSE 0 END) as due_count')
+            ->first();
+
+        return [
+            'total' => $stats->total ?? 0,
+            'new' => $stats->new_count ?? 0,
+            'learning' => $stats->learning_count ?? 0,
+            'mastered' => $stats->mastered_count ?? 0,
+            'due' => $stats->due_count ?? 0,
+        ];
     }
 
     /**

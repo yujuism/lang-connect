@@ -13,6 +13,9 @@ use App\Http\Controllers\LevelController;
 use App\Http\Controllers\CallController;
 use App\Http\Controllers\CanvasController;
 use App\Http\Controllers\PdfController;
+use App\Http\Controllers\DevTestController;
+use App\Http\Controllers\TranscriptController;
+use App\Http\Controllers\FlashcardController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [HomeController::class, 'index'])->name('home');
@@ -93,6 +96,25 @@ Route::middleware('auth')->group(function () {
     Route::post('/notifications/{notification}/read', [NotificationController::class, 'markAsRead'])->name('notifications.read');
     Route::get('/notifications/unread-count', [NotificationController::class, 'getUnreadCount'])->name('notifications.unread-count');
     Route::get('/notifications/fetch', [NotificationController::class, 'fetch'])->name('notifications.fetch');
+
+    // Transcription (AI Analytics - Phase 7)
+    Route::post('/api/transcription/upload-chunk', [TranscriptController::class, 'uploadChunk'])->name('transcription.upload-chunk');
+    Route::get('/sessions/{session}/transcript', [TranscriptController::class, 'show'])->name('sessions.transcript');
+    Route::post('/sessions/{session}/transcribe', [TranscriptController::class, 'transcribe'])->name('sessions.transcribe');
+
+    // Flashcards (AI Analytics - Phase 7)
+    Route::get('/flashcards', [FlashcardController::class, 'index'])->name('flashcards.index');
+    Route::get('/flashcards/review', [FlashcardController::class, 'review'])->name('flashcards.review');
+    Route::get('/flashcards/next-card', [FlashcardController::class, 'nextCard'])->name('flashcards.next-card');
+    Route::post('/flashcards/{flashcard}/answer', [FlashcardController::class, 'answer'])->name('flashcards.answer');
+    Route::get('/flashcards/session/{sessionId}', [FlashcardController::class, 'fromSession'])->name('flashcards.from-session');
+    Route::delete('/flashcards/{flashcard}', [FlashcardController::class, 'destroy'])->name('flashcards.destroy');
+});
+
+// Dev testing routes (only in local environment)
+Route::middleware('auth')->prefix('dev')->group(function () {
+    Route::get('/test-transcribe', [DevTestController::class, 'testPage'])->name('dev.test-transcribe');
+    Route::post('/test-transcribe', [DevTestController::class, 'testTranscribe']);
 });
 
 require __DIR__.'/auth.php';

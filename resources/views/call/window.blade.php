@@ -374,6 +374,15 @@
         let pendingOffer = null;
         let channel = null;
 
+        // Audio Recording for Transcription
+        let mediaRecorder = null;
+        let recordedChunks = [];
+        let chunkNumber = 0;
+        let recordingStartTime = null;
+        const CHUNK_DURATION = 15 * 60 * 1000; // 15 minutes in milliseconds
+        let chunkTimer = null;
+        let sessionId = null; // Set this if call is linked to a session
+
         const rtcConfig = {
             iceServers: [
                 { urls: 'stun:192.168.1.10:3478' },
@@ -543,6 +552,8 @@
                     if (remoteStream && remoteStream.getVideoTracks().length > 0) {
                         document.getElementById('call-info').classList.add('d-none');
                     }
+                    // Start recording for transcription
+                    setTimeout(() => startRecording(), 1000);
                 } else if (state === 'failed') {
                     console.log('Connection failed');
                     endCall();
@@ -591,6 +602,7 @@
         }
 
         function cleanup() {
+            stopRecording(); // Stop audio recording
             if (peerConnection) { peerConnection.close(); peerConnection = null; }
             if (localStream) { localStream.getTracks().forEach(track => track.stop()); localStream = null; }
             if (callTimerInterval) { clearInterval(callTimerInterval); }
@@ -907,6 +919,118 @@
             }
             cleanup();
         });
+
+        // Audio Recording Functions
+        function startRecording() {
+            if (!localStream || mediaRecorder) return;
+
+            try {
+                // Create a mixed stream with local and remote audio
+                const audioContext = new AudioContext();
+                const destination = audioContext.createMediaStreamDestination();
+
+                // Add local audio
+                if (localStream.getAudioTracks().length > 0) {
+                    const localSource = audioContext.createMediaStreamSource(localStream);
+                    localSource.connect(destination);
+                }
+
+                // Add remote audio if available
+                if (remoteStream && remoteStream.getAudioTracks().length > 0) {
+                    const remoteSource = audioContext.createMediaStreamSource(remoteStream);
+                    remoteSource.connect(destination);
+                }
+
+                const mixedStream = destination.stream;
+
+                // Setup MediaRecorder
+                const options = { mimeType: 'audio/webm;codecs=opus' };
+                if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+                    options.mimeType = 'audio/webm';
+                }
+                if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+                    options.mimeType = 'audio/ogg';
+                }
+
+                mediaRecorder = new MediaRecorder(mixedStream, options);
+                recordedChunks = [];
+                recordingStartTime = Date.now();
+
+                mediaRecorder.ondataavailable = (event) => {
+                    if (event.data.size > 0) {
+                        recordedChunks.push(event.data);
+                    }
+                };
+
+                mediaRecorder.onstop = () => {
+                    if (recordedChunks.length > 0) {
+                        uploadChunk();
+                    }
+                };
+
+                // Record in 10 second intervals for smoother chunking
+                mediaRecorder.start(10000);
+                console.log('Audio recording started');
+
+                // Set timer for 15-minute chunks
+                chunkTimer = setInterval(() => {
+                    if (mediaRecorder && mediaRecorder.state === 'recording') {
+                        // Stop current recording, upload, and start new one
+                        mediaRecorder.stop();
+                        chunkNumber++;
+                        // Restart recording after brief pause
+                        setTimeout(() => {
+                            if (peerConnection && peerConnection.connectionState === 'connected') {
+                                recordedChunks = [];
+                                mediaRecorder.start(10000);
+                            }
+                        }, 100);
+                    }
+                }, CHUNK_DURATION);
+
+            } catch (error) {
+                console.error('Error starting recording:', error);
+            }
+        }
+
+        function stopRecording() {
+            if (chunkTimer) {
+                clearInterval(chunkTimer);
+                chunkTimer = null;
+            }
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+            }
+        }
+
+        async function uploadChunk() {
+            if (recordedChunks.length === 0) return;
+
+            const blob = new Blob(recordedChunks, { type: 'audio/webm' });
+            const formData = new FormData();
+            formData.append('audio', blob, `call-recording-chunk-${chunkNumber}.webm`);
+            formData.append('chunk_number', chunkNumber);
+            formData.append('call_id', currentCall?.id || '');
+            formData.append('session_id', sessionId || '');
+
+            try {
+                const response = await fetch('/api/transcription/upload-chunk', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+                    },
+                    body: formData
+                });
+
+                if (response.ok) {
+                    console.log(`Chunk ${chunkNumber} uploaded successfully`);
+                } else {
+                    console.error('Failed to upload chunk:', await response.text());
+                }
+            } catch (error) {
+                console.error('Error uploading chunk:', error);
+            }
+        }
 
         // Start WebSocket connection
         setupWebSocket();

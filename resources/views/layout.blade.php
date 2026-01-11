@@ -204,6 +204,7 @@
                                 <li><a class="dropdown-item" href="{{ route('profile.show', Auth::user()) }}"><i class="bi bi-person"></i> My Profile</a></li>
                                 <li><a class="dropdown-item" href="{{ route('profile.edit') }}"><i class="bi bi-pencil"></i> Edit Profile</a></li>
                                 <li><a class="dropdown-item" href="{{ route('sessions.index') }}"><i class="bi bi-chat-dots"></i> My Sessions</a></li>
+                                <li><a class="dropdown-item" href="{{ route('flashcards.index') }}"><i class="bi bi-card-text"></i> Flashcards</a></li>
                                 <li><a class="dropdown-item" href="{{ route('achievements.index') }}"><i class="bi bi-trophy"></i> Achievements</a></li>
                                 <li><a class="dropdown-item" href="{{ route('levels.index') }}"><i class="bi bi-bar-chart-fill"></i> Level System</a></li>
                                 <li><hr class="dropdown-divider"></li>

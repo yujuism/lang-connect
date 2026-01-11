@@ -126,7 +126,7 @@
             @endif
 
             <!-- Recent Activity Card -->
-            <div class="card shadow-sm" style="border-radius: 1rem; border: 1px solid var(--border-color);">
+            <div class="card shadow-sm mb-4" style="border-radius: 1rem; border: 1px solid var(--border-color);">
                 <div class="card-body p-4">
                     <h6 class="fw-bold mb-3" style="color: var(--text-primary);">
                         <i class="bi bi-activity"></i> Recent Activity
@@ -143,6 +143,66 @@
                     @endif
                 </div>
             </div>
+
+            <!-- Vocabulary & Learning Stats Card (own profile only) -->
+            @if(Auth::id() === $user->id && ($vocabularyStats['total'] > 0 || $flashcardStats['total'] > 0))
+                <div class="card shadow-sm" style="border-radius: 1rem; border: 1px solid var(--border-color);">
+                    <div class="card-body p-4">
+                        <h6 class="fw-bold mb-3" style="color: var(--text-primary);">
+                            <i class="bi bi-book"></i> Learning Progress
+                        </h6>
+
+                        @if($vocabularyStats['total'] > 0)
+                            <div class="mb-3">
+                                <div class="small text-secondary mb-2">Vocabulary</div>
+                                <div class="d-flex align-items-center justify-content-between mb-1">
+                                    <span class="small">Total words learned</span>
+                                    <span class="fw-semibold" style="color: var(--primary-color);">{{ $vocabularyStats['total'] }}</span>
+                                </div>
+                                @if($vocabularyStats['recent_week'] > 0)
+                                    <div class="d-flex align-items-center justify-content-between mb-1">
+                                        <span class="small">New this week</span>
+                                        <span class="fw-semibold text-success">+{{ $vocabularyStats['recent_week'] }}</span>
+                                    </div>
+                                @endif
+                                @if(count($vocabularyStats['by_language']) > 0)
+                                    <div class="d-flex flex-wrap gap-1 mt-2">
+                                        @foreach($vocabularyStats['by_language'] as $lang => $count)
+                                            <span class="badge" style="background: var(--bg-tertiary); color: var(--text-secondary);">
+                                                {{ strtoupper($lang) }}: {{ $count }}
+                                            </span>
+                                        @endforeach
+                                    </div>
+                                @endif
+                            </div>
+                        @endif
+
+                        @if($flashcardStats['total'] > 0)
+                            <div class="pt-3" style="border-top: 1px solid var(--border-color);">
+                                <div class="small text-secondary mb-2">Flashcards</div>
+                                <div class="d-flex justify-content-between small">
+                                    <span>
+                                        <span class="fw-semibold" style="color: var(--primary-color);">{{ $flashcardStats['total'] }}</span> total
+                                    </span>
+                                    <span>
+                                        <span class="fw-semibold text-success">{{ $flashcardStats['mastered'] }}</span> mastered
+                                    </span>
+                                    @if($flashcardStats['due'] > 0)
+                                        <span>
+                                            <span class="fw-semibold text-danger">{{ $flashcardStats['due'] }}</span> due
+                                        </span>
+                                    @endif
+                                </div>
+                                @if($flashcardStats['due'] > 0)
+                                    <a href="{{ route('flashcards.review') }}" class="btn btn-sm btn-primary w-100 mt-2">
+                                        <i class="bi bi-play-fill"></i> Review {{ $flashcardStats['due'] }} cards
+                                    </a>
+                                @endif
+                            </div>
+                        @endif
+                    </div>
+                </div>
+            @endif
         </div>
 
         <!-- Right Column -->

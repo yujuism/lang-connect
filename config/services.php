@@ -35,4 +35,12 @@ return [
         ],
     ],
 
+    // AI Services (Phase 7) - All Groq
+    'groq' => [
+        'api_key' => env('GROQ_API_KEY'),
+        'base_url' => 'https://api.groq.com/openai/v1',
+        'whisper_model' => 'whisper-large-v3',
+        'chat_model' => 'llama-3.3-70b-versatile',
+    ],
+
 ];
