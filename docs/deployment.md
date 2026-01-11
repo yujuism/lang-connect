@@ -151,6 +151,8 @@ Practice sessions also include a collaborative PDF viewer for annotating documen
 4. Changes broadcast via WebSocket whispers for real-time sync
 5. SVG overlay with viewBox for scale-independent annotations
 
+**Note**: PDF uploads use safe filenames (`session-{id}-{timestamp}.pdf`) to avoid encoding issues with non-ASCII characters (e.g., Japanese filenames).
+
 ### Frontend
 - `resources/js/pdf-viewer.jsx` - React component using react-pdf v10
 - Mounted via `window.mountPdfViewer()` on session page
@@ -185,6 +187,23 @@ LangConnect uses Groq for AI-powered features:
 - Voice transcription via Groq Whisper API
 - Session analysis: summary, topics, key phrases, vocabulary extraction
 - Auto-generated flashcards from extracted vocabulary
+
+### Recording Preference
+
+Users can control call recording behavior:
+
+| Preference | Behavior |
+|------------|----------|
+| `ask` (default) | Prompt shown when call connects |
+| `always` | Auto-record all calls |
+| `never` | Never record calls |
+
+**UI locations:**
+- **Call window**: Prompt overlay with "Remember my choice" checkbox
+- **Profile settings**: Dropdown under "Call Recording"
+- **Mid-call toggle**: Record button in call controls
+
+**Database**: `users.recording_preference` (enum: ask, always, never)
 
 ### How it works
 1. Call starts → `startRecording()` mixes local + remote audio via AudioContext
