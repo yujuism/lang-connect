@@ -14,8 +14,8 @@ ENV VITE_REVERB_SCHEME=$VITE_REVERB_SCHEME
 
 WORKDIR /app
 
-COPY package.json ./
-RUN npm install -g pnpm && pnpm install
+COPY package.json pnpm-lock.yaml ./
+RUN npm install -g pnpm && pnpm install --frozen-lockfile
 
 COPY resources ./resources
 COPY vite.config.js postcss.config.js tailwind.config.js ./
