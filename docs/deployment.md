@@ -85,9 +85,33 @@ WebSocket is automatically handled - nginx proxies `/app/*` to Reverb internally
 
 The GitLab CI pipeline has 3 stages:
 
-1. **build**: Builds Docker image with Vite env vars baked in
+1. **build**: Builds Docker image with Vite env vars baked in (uses Docker-in-Docker)
 2. **infra**: Creates namespace if first deployment (secrets applied manually)
 3. **deploy**: Applies k8s manifests and restarts deployment
+
+### Docker-in-Docker Configuration
+
+The build stage uses Docker-in-Docker (DinD) to build images. Key configuration:
+
+```yaml
+build:
+  image: docker:27
+  services:
+    - name: docker:27-dind
+      alias: docker
+      command: ["--tls=false"]
+  variables:
+    DOCKER_HOST: tcp://docker:2375
+    DOCKER_TLS_CERTDIR: ""
+    DOCKER_DRIVER: overlay2
+  before_script:
+    - until docker info; do sleep 1; done
+```
+
+**Runner Requirements:**
+- Must have `privileged: true` in runner config for DinD to work
+- Tagged with `243-runner` for build stage
+- Tagged with `kube-runner` for infra/deploy stages
 
 ### Required CI Variables
 
@@ -278,3 +302,48 @@ Seeded test accounts (password: `password`):
 - hans@example.com (German native, learning Spanish)
 - chen@example.com (Chinese native, learning English)
 - pierre@example.com (French native, learning Japanese)
+
+## Troubleshooting
+
+### Pipeline Build Fails with "Cannot connect to Docker daemon"
+
+**Error:** `ERROR: Cannot connect to the Docker daemon at tcp://docker:2375`
+
+**Cause:** Docker-in-Docker service not starting or runner not configured for privileged mode.
+
+**Fix:** Ensure `.gitlab-ci.yml` has proper DinD configuration:
+```yaml
+services:
+  - name: docker:27-dind
+    alias: docker
+    command: ["--tls=false"]
+variables:
+  DOCKER_HOST: tcp://docker:2375
+  DOCKER_TLS_CERTDIR: ""
+before_script:
+  - until docker info; do sleep 1; done
+```
+
+### Pod Stuck in CreateContainerConfigError
+
+**Error:** `CreateContainerConfigError` in pod status
+
+**Cause:** Missing secret key referenced in deployment.yaml
+
+**Fix:** Check which key is missing:
+```bash
+kubectl describe pod <pod-name> -n langconnect | grep -A5 "Events:"
+```
+Then add the missing key to secrets:
+```bash
+kubectl patch secret langconnect-secrets -n langconnect --type='json' \
+  -p='[{"op": "add", "path": "/data/KEY_NAME", "value": "'$(echo -n "value" | base64)'"}]'
+```
+
+### WebSocket 403 Errors
+
+**Error:** `POST /broadcasting/auth` returns 403
+
+**Cause:** Normal for unauthenticated users. WebSocket auth requires login.
+
+**Fix:** No action needed - this is expected behavior for guests.
