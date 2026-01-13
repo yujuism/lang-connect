@@ -76,7 +76,18 @@ class SessionController extends Controller
         // Get PDF URL if exists
         $pdfUrl = $session->pdf_path ? Storage::disk('minio')->url($session->pdf_path) : null;
 
-        return view('sessions.show', compact('session', 'partner', 'pdfUrl'));
+        // Load analysis data for completed sessions
+        $analysis = null;
+        $transcripts = collect();
+        $sessionFlashcards = collect();
+
+        if ($session->status === 'completed') {
+            $analysis = $session->analysis;
+            $transcripts = $session->transcripts()->where('status', 'completed')->get();
+            $sessionFlashcards = $session->flashcards()->where('user_id', Auth::id())->get();
+        }
+
+        return view('sessions.show', compact('session', 'partner', 'pdfUrl', 'analysis', 'transcripts', 'sessionFlashcards'));
     }
 
     /**

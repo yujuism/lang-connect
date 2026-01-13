@@ -9,6 +9,41 @@ use Illuminate\Support\Facades\Auth;
 class FlashcardController extends Controller
 {
     /**
+     * Create a new flashcard.
+     */
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'front' => 'required|string|max:500',
+            'back' => 'required|string|max:1000',
+            'language' => 'required|string|max:50',
+            'practice_session_id' => 'nullable|integer|exists:practice_sessions,id',
+        ]);
+
+        $flashcard = Flashcard::create([
+            'user_id' => Auth::id(),
+            'front' => $validated['front'],
+            'back' => $validated['back'],
+            'language' => $validated['language'],
+            'practice_session_id' => $validated['practice_session_id'] ?? null,
+            'mastery_level' => 0,
+            'repetitions' => 0,
+            'ease_factor' => 2.5,
+            'interval_days' => 0,
+            'next_review_at' => now(),
+        ]);
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'flashcard' => $flashcard,
+            ]);
+        }
+
+        return redirect()->back()->with('success', 'Flashcard created!');
+    }
+
+    /**
      * Display user's flashcard decks.
      */
     public function index(Request $request)

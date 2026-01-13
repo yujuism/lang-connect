@@ -1,5 +1,6 @@
 @php
     use Illuminate\Support\Facades\Auth;
+    use Illuminate\Support\Facades\Storage;
 @endphp
 <!DOCTYPE html>
 <html lang="en">
@@ -53,6 +54,27 @@
 
         .dropdown-menu {
             z-index: 1040;
+            border: 1px solid var(--border-color);
+            border-radius: 0.75rem;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.12);
+            padding: 0.5rem;
+        }
+
+        .dropdown-item {
+            border-radius: 0.5rem;
+            padding: 0.5rem 0.75rem;
+            font-size: 0.875rem;
+        }
+
+        .dropdown-item:hover {
+            background-color: var(--bg-secondary);
+        }
+
+        .dropdown-header {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-weight: 600;
         }
 
         .navbar-brand {
@@ -143,95 +165,114 @@
 
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav me-auto">
-                    <li class="nav-item">
-                        <a class="nav-link {{ request()->routeIs('home') ? 'active' : '' }}" href="{{ route('home') }}">
-                            <i class="bi bi-house"></i> Home
-                        </a>
-                    </li>
                     @auth
+                        {{-- Authenticated: Show core features --}}
                         <li class="nav-item">
                             <a class="nav-link {{ request()->routeIs('learning-requests.browse') ? 'active' : '' }}" href="{{ route('learning-requests.browse') }}">
-                                <i class="bi bi-search"></i> Browse Requests
+                                <i class="bi bi-search"></i> Find Partners
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link {{ request()->routeIs('learning-requests.*') ? 'active' : '' }}" href="{{ route('learning-requests.index') }}">
-                                <i class="bi bi-chat-dots"></i> My Requests
+                            <a class="nav-link {{ request()->routeIs('sessions.*') ? 'active' : '' }}" href="{{ route('sessions.index') }}">
+                                <i class="bi bi-calendar-check"></i> Sessions
                             </a>
                         </li>
-                    @endauth
-                    <li class="nav-item">
-                        <a class="nav-link {{ request()->routeIs('members') ? 'active' : '' }}" href="{{ route('members') }}">
-                            <i class="bi bi-people"></i> Community
-                        </a>
-                    </li>
-                    @auth
                         <li class="nav-item">
-                            <a class="nav-link {{ request()->routeIs('leaderboard.*') ? 'active' : '' }}" href="{{ route('leaderboard.index') }}">
-                                <i class="bi bi-trophy-fill"></i> Leaderboard
+                            <a class="nav-link {{ request()->routeIs('flashcards.*') ? 'active' : '' }}" href="{{ route('flashcards.index') }}">
+                                <i class="bi bi-card-text"></i> Flashcards
+                            </a>
+                        </li>
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle {{ request()->routeIs('members') || request()->routeIs('leaderboard.*') ? 'active' : '' }}" href="#" role="button" data-bs-toggle="dropdown">
+                                <i class="bi bi-people"></i> Community
+                            </a>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="{{ route('members') }}"><i class="bi bi-globe me-2"></i>Browse Members</a></li>
+                                <li><a class="dropdown-item" href="{{ route('leaderboard.index') }}"><i class="bi bi-trophy me-2"></i>Leaderboard</a></li>
+                            </ul>
+                        </li>
+                    @else
+                        {{-- Guest: Show minimal nav --}}
+                        <li class="nav-item">
+                            <a class="nav-link {{ request()->routeIs('home') ? 'active' : '' }}" href="{{ route('home') }}">
+                                <i class="bi bi-house"></i> Home
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {{ request()->routeIs('members') ? 'active' : '' }}" href="{{ route('members') }}">
+                                <i class="bi bi-people"></i> Community
                             </a>
                         </li>
                     @endauth
                 </ul>
 
-                <ul class="navbar-nav ms-auto">
+                <ul class="navbar-nav ms-auto align-items-center">
                     @auth
+                        {{-- Messages with badge --}}
                         <li class="nav-item">
-                            <a class="nav-link position-relative {{ request()->routeIs('messages.*') ? 'active' : '' }}" href="{{ route('messages.index') }}">
-                                <i class="bi bi-chat-dots"></i> Messages
+                            <a class="nav-link position-relative {{ request()->routeIs('messages.*') ? 'active' : '' }}" href="{{ route('messages.index') }}" title="Messages">
+                                <i class="bi bi-chat-fill"></i>
                                 @if(Auth::user()->getUnreadMessageCount() > 0)
-                                    <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="font-size: 0.65rem;">
-                                        {{ Auth::user()->getUnreadMessageCount() }}
+                                    <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="font-size: 0.6rem;">
+                                        {{ Auth::user()->getUnreadMessageCount() > 9 ? '9+' : Auth::user()->getUnreadMessageCount() }}
                                     </span>
                                 @endif
                             </a>
                         </li>
+                        {{-- Notifications with badge --}}
                         <li class="nav-item">
-                            <a class="nav-link position-relative {{ request()->routeIs('notifications.*') ? 'active' : '' }}" href="{{ route('notifications.index') }}">
-                                <i class="bi bi-bell"></i>
+                            <a class="nav-link position-relative {{ request()->routeIs('notifications.*') ? 'active' : '' }}" href="{{ route('notifications.index') }}" title="Notifications">
+                                <i class="bi bi-bell-fill"></i>
                                 @if(Auth::user()->getUnreadNotificationCount() > 0)
-                                    <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="font-size: 0.65rem;">
-                                        {{ Auth::user()->getUnreadNotificationCount() }}
+                                    <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="font-size: 0.6rem;">
+                                        {{ Auth::user()->getUnreadNotificationCount() > 9 ? '9+' : Auth::user()->getUnreadNotificationCount() }}
                                     </span>
                                 @endif
                             </a>
                         </li>
+                        {{-- User Dropdown --}}
                         <li class="nav-item dropdown">
-                            <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                <i class="bi bi-person-circle"></i> {{ Auth::user()->name }}
+                            <a class="nav-link dropdown-toggle d-flex align-items-center gap-1" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                @if(Auth::user()->avatar_path)
+                                    <img src="{{ Storage::url(Auth::user()->avatar_path) }}" alt="" class="rounded-circle" style="width: 24px; height: 24px; object-fit: cover;">
+                                @else
+                                    <i class="bi bi-person-circle"></i>
+                                @endif
+                                <span class="d-none d-md-inline">{{ Auth::user()->name }}</span>
                             </a>
                             <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
-                                <li><a class="dropdown-item" href="{{ route('profile.show', Auth::user()) }}"><i class="bi bi-person"></i> My Profile</a></li>
-                                <li><a class="dropdown-item" href="{{ route('profile.edit') }}"><i class="bi bi-pencil"></i> Edit Profile</a></li>
-                                <li><a class="dropdown-item" href="{{ route('sessions.index') }}"><i class="bi bi-chat-dots"></i> My Sessions</a></li>
-                                <li><a class="dropdown-item" href="{{ route('flashcards.index') }}"><i class="bi bi-card-text"></i> Flashcards</a></li>
-                                <li><a class="dropdown-item" href="{{ route('achievements.index') }}"><i class="bi bi-trophy"></i> Achievements</a></li>
-                                <li><a class="dropdown-item" href="{{ route('levels.index') }}"><i class="bi bi-bar-chart-fill"></i> Level System</a></li>
+                                <li class="dropdown-header small text-muted px-3">Account</li>
+                                <li><a class="dropdown-item" href="{{ route('profile.show', Auth::user()) }}"><i class="bi bi-person me-2"></i>My Profile</a></li>
+                                <li><a class="dropdown-item" href="{{ route('learning-requests.index') }}"><i class="bi bi-hand-index me-2"></i>My Requests</a></li>
                                 <li><hr class="dropdown-divider"></li>
+                                <li class="dropdown-header small text-muted px-3">Progress</li>
+                                <li><a class="dropdown-item" href="{{ route('achievements.index') }}"><i class="bi bi-award me-2"></i>Achievements</a></li>
+                                <li><a class="dropdown-item" href="{{ route('levels.index') }}"><i class="bi bi-bar-chart me-2"></i>Level & Stats</a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item" href="{{ route('profile.edit') }}"><i class="bi bi-gear me-2"></i>Settings</a></li>
                                 <li>
                                     <form method="POST" action="{{ route('logout') }}">
                                         @csrf
-                                        <button type="submit" class="dropdown-item">
-                                            <i class="bi bi-box-arrow-right"></i> Logout
+                                        <button type="submit" class="dropdown-item text-danger">
+                                            <i class="bi bi-box-arrow-right me-2"></i>Logout
                                         </button>
                                     </form>
                                 </li>
                             </ul>
                         </li>
-                        <li class="nav-item">
-                            <a class="btn btn-outline-light btn-sm ms-2" href="{{ route('learning-requests.create') }}">
-                                <i class="bi bi-plus-circle"></i> Request Help
+                        {{-- CTA Button --}}
+                        <li class="nav-item ms-2">
+                            <a class="btn btn-light btn-sm" href="{{ route('learning-requests.create') }}" style="font-weight: 600;">
+                                <i class="bi bi-plus-lg"></i> <span class="d-none d-lg-inline">Request Help</span>
                             </a>
                         </li>
                     @else
                         <li class="nav-item">
-                            <a class="nav-link" href="{{ route('login') }}">
-                                <i class="bi bi-box-arrow-in-right"></i> Login
-                            </a>
+                            <a class="nav-link" href="{{ route('login') }}">Login</a>
                         </li>
-                        <li class="nav-item">
-                            <a class="btn btn-outline-light btn-sm ms-2" href="{{ route('register') }}">
-                                <i class="bi bi-person-plus"></i> Sign Up
+                        <li class="nav-item ms-2">
+                            <a class="btn btn-light btn-sm" href="{{ route('register') }}" style="font-weight: 600;">
+                                Sign Up
                             </a>
                         </li>
                     @endauth

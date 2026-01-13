@@ -17,9 +17,16 @@
                 @endif
             </p>
         </div>
-        <a href="{{ route('flashcards.index') }}" class="btn btn-outline-secondary">
-            <i class="bi bi-x-lg"></i> Exit
-        </a>
+        <div class="d-flex align-items-center gap-3">
+            <!-- Streak Counter -->
+            <div id="streak-counter" class="d-flex align-items-center gap-2" style="display: none !important;">
+                <i class="bi bi-fire text-warning"></i>
+                <span class="fw-bold" id="streak-number">0</span>
+            </div>
+            <a href="{{ route('flashcards.index') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-x-lg"></i> Exit
+            </a>
+        </div>
     </div>
 
     <!-- Progress Bar -->
@@ -39,8 +46,12 @@
             <div class="flashcard" id="flashcard">
                 <div class="flashcard-front">
                     <div class="card-lang-badge" id="front-lang"></div>
+                    <div class="mastery-indicator" id="mastery-indicator"></div>
                     <div class="card-content" id="front-content"></div>
-                    <div class="tap-hint">Tap to reveal</div>
+                    <div class="tap-hint">
+                        <span class="d-none d-sm-inline"><kbd>Space</kbd> to reveal</span>
+                        <span class="d-sm-none">Tap to reveal</span>
+                    </div>
                 </div>
                 <div class="flashcard-back">
                     <div class="card-lang-badge" id="back-lang"></div>
@@ -53,19 +64,28 @@
     <!-- Rating Buttons (shown after flip) -->
     <div id="rating-buttons" class="text-center mt-4" style="display: none;">
         <p class="text-secondary mb-3">How well did you remember?</p>
-        <div class="d-flex justify-content-center gap-2 flex-wrap">
-            <button class="btn btn-danger px-4" onclick="submitAnswer(0)">
+        <div class="d-flex justify-content-center gap-2 flex-wrap mb-3">
+            <button class="btn btn-danger rating-btn px-4" onclick="submitAnswer(0)" data-key="1">
                 <i class="bi bi-x-circle"></i> Forgot
+                <span class="d-none d-sm-inline ms-1 opacity-75">[1]</span>
             </button>
-            <button class="btn btn-warning px-4" onclick="submitAnswer(2)">
+            <button class="btn btn-warning rating-btn px-4" onclick="submitAnswer(2)" data-key="2">
                 <i class="bi bi-question-circle"></i> Hard
+                <span class="d-none d-sm-inline ms-1 opacity-75">[2]</span>
             </button>
-            <button class="btn btn-info px-4" onclick="submitAnswer(3)">
+            <button class="btn btn-info rating-btn px-4" onclick="submitAnswer(3)" data-key="3">
                 <i class="bi bi-check-circle"></i> Good
+                <span class="d-none d-sm-inline ms-1 opacity-75">[3]</span>
             </button>
-            <button class="btn btn-success px-4" onclick="submitAnswer(5)">
+            <button class="btn btn-success rating-btn px-4" onclick="submitAnswer(5)" data-key="4">
                 <i class="bi bi-star-fill"></i> Easy
+                <span class="d-none d-sm-inline ms-1 opacity-75">[4]</span>
             </button>
+        </div>
+        <!-- Next Review Preview -->
+        <div id="review-preview" class="text-secondary small" style="display: none;">
+            <i class="bi bi-clock me-1"></i>
+            Next review: <span id="next-review-text"></span>
         </div>
     </div>
 
@@ -75,10 +95,18 @@
             <div class="card-body p-5">
                 <i class="bi bi-trophy-fill text-warning display-1 mb-3"></i>
                 <h4 class="fw-bold" style="color: var(--text-primary);">Review Complete!</h4>
-                <p class="text-secondary mb-4" id="stats-message"></p>
-                <a href="{{ route('flashcards.index') }}" class="btn btn-primary btn-lg">
-                    <i class="bi bi-arrow-left me-2"></i>Back to Flashcards
-                </a>
+                <p class="text-secondary mb-2" id="stats-message"></p>
+                <div id="streak-message" class="mb-4"></div>
+                <div class="d-flex justify-content-center gap-2 flex-wrap">
+                    <a href="{{ route('flashcards.index') }}" class="btn btn-primary btn-lg">
+                        <i class="bi bi-arrow-left me-2"></i>Back to Flashcards
+                    </a>
+                    @if($language)
+                    <a href="{{ route('flashcards.review', ['language' => $language]) }}" class="btn btn-outline-primary btn-lg" id="review-again-btn" style="display: none;">
+                        <i class="bi bi-arrow-repeat me-2"></i>Review Again
+                    </a>
+                    @endif
+                </div>
             </div>
         </div>
     </div>
@@ -98,11 +126,29 @@
         height: 100%;
         position: relative;
         transform-style: preserve-3d;
-        transition: transform 0.6s;
+        transition: transform 0.5s cubic-bezier(0.4, 0.0, 0.2, 1);
     }
 
     .flashcard.flipped {
         transform: rotateY(180deg);
+    }
+
+    .flashcard.slide-out {
+        animation: slideOut 0.3s ease-in forwards;
+    }
+
+    .flashcard.slide-in {
+        animation: slideIn 0.3s ease-out forwards;
+    }
+
+    @keyframes slideOut {
+        0% { transform: translateX(0) rotateY(180deg); opacity: 1; }
+        100% { transform: translateX(100px) rotateY(180deg); opacity: 0; }
+    }
+
+    @keyframes slideIn {
+        0% { transform: translateX(-100px) rotateY(0); opacity: 0; }
+        100% { transform: translateX(0) rotateY(0); opacity: 1; }
     }
 
     .flashcard-front, .flashcard-back {
@@ -116,11 +162,11 @@
         align-items: center;
         justify-content: center;
         padding: 2rem;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        box-shadow: 0 4px 20px rgba(0,0,0,0.12);
     }
 
     .flashcard-front {
-        background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
+        background: linear-gradient(135deg, var(--primary-color), var(--primary-dark, #4a5bc7));
         color: white;
     }
 
@@ -148,11 +194,32 @@
         color: var(--text-secondary);
     }
 
+    .mastery-indicator {
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+        display: flex;
+        gap: 3px;
+    }
+
+    .mastery-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: rgba(255,255,255,0.3);
+    }
+
+    .mastery-dot.filled {
+        background: rgba(255,255,255,0.9);
+    }
+
     .card-content {
         font-size: 1.75rem;
         font-weight: 600;
         text-align: center;
         word-break: break-word;
+        max-height: 200px;
+        overflow-y: auto;
     }
 
     .tap-hint {
@@ -162,12 +229,44 @@
         opacity: 0.7;
     }
 
+    kbd {
+        background: rgba(255,255,255,0.2);
+        padding: 0.15rem 0.4rem;
+        border-radius: 0.25rem;
+        font-family: inherit;
+        font-size: 0.8rem;
+    }
+
+    .rating-btn {
+        transition: transform 0.15s, box-shadow 0.15s;
+    }
+
+    .rating-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+
+    .rating-btn:active {
+        transform: translateY(0);
+    }
+
+    #streak-counter {
+        background: var(--bg-secondary);
+        padding: 0.5rem 1rem;
+        border-radius: 2rem;
+        font-size: 1.1rem;
+    }
+
     @media (max-width: 576px) {
         .flashcard-container {
             height: 250px;
         }
         .card-content {
             font-size: 1.25rem;
+        }
+        .rating-btn {
+            padding: 0.5rem 0.75rem !important;
+            font-size: 0.875rem;
         }
     }
 </style>
@@ -179,6 +278,8 @@
     let currentCardIndex = 0;
     let reviewed = 0;
     let isFlipped = false;
+    let streak = 0;
+    let maxStreak = 0;
     const totalCards = {{ $totalDue }};
     const language = @json($language);
 
@@ -186,11 +287,21 @@
         document.getElementById('front-content').textContent = card.front;
         document.getElementById('back-content').textContent = card.back;
         document.getElementById('front-lang').textContent = card.target_language;
-        document.getElementById('back-lang').textContent = card.native_language;
+        document.getElementById('back-lang').textContent = 'Answer';
+
+        // Show mastery indicator
+        const masteryContainer = document.getElementById('mastery-indicator');
+        masteryContainer.innerHTML = '';
+        for (let i = 0; i < 5; i++) {
+            const dot = document.createElement('div');
+            dot.className = 'mastery-dot' + (i < card.mastery_level ? ' filled' : '');
+            masteryContainer.appendChild(dot);
+        }
 
         // Reset card state
-        document.getElementById('flashcard').classList.remove('flipped');
+        document.getElementById('flashcard').classList.remove('flipped', 'slide-out', 'slide-in');
         document.getElementById('rating-buttons').style.display = 'none';
+        document.getElementById('review-preview').style.display = 'none';
         isFlipped = false;
     }
 
@@ -227,19 +338,42 @@
 
             if (!response.ok) throw new Error('Failed to save answer');
 
+            const result = await response.json();
+
+            // Update streak
+            if (quality >= 3) {
+                streak++;
+                maxStreak = Math.max(maxStreak, streak);
+                updateStreakDisplay();
+            } else {
+                streak = 0;
+                document.getElementById('streak-counter').style.display = 'none';
+            }
+
+            // Show next review preview
+            showNextReviewPreview(result.interval_days);
+
             reviewed++;
             updateProgress();
+
+            // Animate card out
+            const flashcard = document.getElementById('flashcard');
+            flashcard.classList.add('slide-out');
+
+            await new Promise(resolve => setTimeout(resolve, 250));
 
             // Move to next card
             currentCardIndex++;
 
             if (currentCardIndex >= cards.length) {
-                // Try to fetch more cards
                 await fetchMoreCards();
             }
 
             if (currentCardIndex < cards.length) {
+                flashcard.classList.remove('slide-out');
+                flashcard.classList.add('slide-in');
                 showCard(cards[currentCardIndex]);
+                setTimeout(() => flashcard.classList.remove('slide-in'), 300);
             } else {
                 showDone();
             }
@@ -249,6 +383,36 @@
             alert('Failed to save your answer. Please try again.');
         } finally {
             buttons.forEach(b => b.disabled = false);
+        }
+    }
+
+    function showNextReviewPreview(intervalDays) {
+        const preview = document.getElementById('review-preview');
+        const text = document.getElementById('next-review-text');
+
+        if (intervalDays === 0) {
+            text.textContent = 'in a few minutes';
+        } else if (intervalDays === 1) {
+            text.textContent = 'tomorrow';
+        } else if (intervalDays < 7) {
+            text.textContent = `in ${intervalDays} days`;
+        } else if (intervalDays < 30) {
+            const weeks = Math.round(intervalDays / 7);
+            text.textContent = `in ${weeks} week${weeks > 1 ? 's' : ''}`;
+        } else {
+            const months = Math.round(intervalDays / 30);
+            text.textContent = `in ${months} month${months > 1 ? 's' : ''}`;
+        }
+
+        preview.style.display = 'block';
+    }
+
+    function updateStreakDisplay() {
+        if (streak >= 3) {
+            const counter = document.getElementById('streak-counter');
+            counter.style.display = 'flex !important';
+            counter.style.cssText = 'display: flex !important;';
+            document.getElementById('streak-number').textContent = streak;
         }
     }
 
@@ -281,6 +445,11 @@
         document.getElementById('rating-buttons').style.display = 'none';
         document.getElementById('done-message').style.display = 'block';
         document.getElementById('stats-message').textContent = `You reviewed ${reviewed} cards. Great job!`;
+
+        if (maxStreak >= 3) {
+            document.getElementById('streak-message').innerHTML =
+                `<span class="text-warning"><i class="bi bi-fire"></i> Best streak: ${maxStreak} cards in a row!</span>`;
+        }
     }
 
     // Initialize
@@ -292,6 +461,9 @@
 
     // Keyboard shortcuts
     document.addEventListener('keydown', (e) => {
+        // Ignore if typing in an input
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
         if (e.key === ' ' || e.key === 'Enter') {
             e.preventDefault();
             if (!isFlipped) {

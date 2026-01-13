@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class PracticeSession extends Model
 {
@@ -62,5 +63,20 @@ class PracticeSession extends Model
     public function reviews(): HasMany
     {
         return $this->hasMany(SessionReview::class, 'session_id');
+    }
+
+    public function analysis(): HasOne
+    {
+        return $this->hasOne(SessionAnalysis::class);
+    }
+
+    public function transcripts(): HasMany
+    {
+        return $this->hasMany(SessionTranscript::class)->orderBy('chunk_number');
+    }
+
+    public function flashcards(): HasMany
+    {
+        return $this->hasMany(Flashcard::class);
     }
 }

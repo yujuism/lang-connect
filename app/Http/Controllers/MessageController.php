@@ -26,22 +26,32 @@ class MessageController extends Controller
     ) {}
 
     /**
-     * Show messages inbox with conversation list
+     * Show messages inbox with unified split view
      *
      * @return \Illuminate\View\View
      */
     public function index()
     {
-        /** @var \App\Models\User $user */
-        $user = Auth::user();
+        /** @var \App\Models\User $currentUser */
+        $currentUser = Auth::user();
 
-        $conversations = $this->messageService->getUserConversations($user);
+        $conversations = $this->messageService->getUserConversations($currentUser);
 
-        return view('messages.index', compact('conversations'));
+        // Auto-select first conversation if available
+        $activeUser = null;
+        $messages = collect();
+
+        if ($conversations->isNotEmpty()) {
+            $activeUser = $conversations->first()->user;
+            $messages = $this->messageService->getConversation($currentUser, $activeUser);
+            $this->messageService->markAsRead($activeUser, $currentUser);
+        }
+
+        return view('messages.index', compact('conversations', 'activeUser', 'messages'));
     }
 
     /**
-     * Show conversation with specific user
+     * Show conversation with specific user (unified view)
      *
      * @param User $user
      * @return \Illuminate\View\View
@@ -51,13 +61,60 @@ class MessageController extends Controller
         /** @var \App\Models\User $currentUser */
         $currentUser = Auth::user();
 
-        // Get messages
+        $conversations = $this->messageService->getUserConversations($currentUser);
         $messages = $this->messageService->getConversation($currentUser, $user);
-
-        // Mark messages as read
         $this->messageService->markAsRead($user, $currentUser);
 
-        return view('messages.show', compact('user', 'messages'));
+        $activeUser = $user;
+
+        return view('messages.index', compact('conversations', 'activeUser', 'messages'));
+    }
+
+    /**
+     * Get conversations list as JSON (for real-time updates)
+     *
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function conversationsJson()
+    {
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
+
+        $conversations = $this->messageService->getUserConversations($user);
+
+        return response()->json([
+            'conversations' => $conversations->map(fn($conv) => [
+                'user_id' => $conv->user->id,
+                'user_name' => $conv->user->name,
+                'user_avatar' => $conv->user->avatar_path,
+                'last_message_at' => $conv->last_message_at,
+                'unread_count' => $conv->unread_count,
+            ]),
+        ]);
+    }
+
+    /**
+     * Get messages for a conversation as JSON
+     *
+     * @param User $user
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function messagesJson(User $user)
+    {
+        /** @var \App\Models\User $currentUser */
+        $currentUser = Auth::user();
+
+        $messages = $this->messageService->getConversation($currentUser, $user);
+        $this->messageService->markAsRead($user, $currentUser);
+
+        return response()->json([
+            'messages' => $messages,
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'avatar_path' => $user->avatar_path,
+            ],
+        ]);
     }
 
     /**

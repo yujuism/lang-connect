@@ -79,7 +79,9 @@ Route::middleware('auth')->group(function () {
 
     // Messages
     Route::get('/messages', [MessageController::class, 'index'])->name('messages.index');
+    Route::get('/messages/conversations', [MessageController::class, 'conversationsJson'])->name('messages.conversations');
     Route::get('/messages/{user}', [MessageController::class, 'show'])->name('messages.show');
+    Route::get('/messages/{user}/json', [MessageController::class, 'messagesJson'])->name('messages.json');
     Route::post('/messages/{user}/send', [MessageController::class, 'send'])->name('messages.send');
     Route::post('/messages/{user}/mark-read', [MessageController::class, 'markRead'])->name('messages.mark-read');
     Route::get('/messages/{user}/fetch', [MessageController::class, 'fetch'])->name('messages.fetch');
@@ -105,6 +107,7 @@ Route::middleware('auth')->group(function () {
 
     // Flashcards (AI Analytics - Phase 7)
     Route::get('/flashcards', [FlashcardController::class, 'index'])->name('flashcards.index');
+    Route::post('/flashcards', [FlashcardController::class, 'store'])->name('flashcards.store');
     Route::get('/flashcards/review', [FlashcardController::class, 'review'])->name('flashcards.review');
     Route::get('/flashcards/next-card', [FlashcardController::class, 'nextCard'])->name('flashcards.next-card');
     Route::post('/flashcards/{flashcard}/answer', [FlashcardController::class, 'answer'])->name('flashcards.answer');
