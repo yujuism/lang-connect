@@ -3,7 +3,7 @@ set -e
 
 # Wait for MySQL to be ready
 echo "Waiting for MySQL..."
-while ! mysqladmin ping -h"$DB_HOST" -u"$DB_USERNAME" -p"$DB_PASSWORD" --skip-ssl --silent; do
+while ! php -r "new PDO('mysql:host=$DB_HOST;port=$DB_PORT;dbname=$DB_DATABASE', '$DB_USERNAME', '$DB_PASSWORD');" 2>/dev/null; do
     sleep 2
 done
 echo "MySQL is ready!"
