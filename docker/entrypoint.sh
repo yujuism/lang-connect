@@ -14,6 +14,10 @@ echo "MySQL is ready!"
 # Run migrations
 php artisan migrate --force
 
+# Seed languages and test users (only if not already seeded)
+php artisan db:seed --class=LanguageSeeder --force
+php artisan db:seed --class=TestUsersSeeder --force
+
 # Cache config and routes
 php artisan config:cache
 php artisan route:cache
