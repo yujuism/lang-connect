@@ -14,14 +14,17 @@ echo "MySQL is ready!"
 # Run migrations
 php artisan migrate --force
 
-# Seed languages (only if not already seeded)
-php artisan db:seed --class=LanguageSeeder --force
-
-# Seed test users only if they don't exist yet
+# Seed languages only if not already seeded
 php -r "
 require '/app/vendor/autoload.php';
 \$app = require '/app/bootstrap/app.php';
 \$app->make('Illuminate\Contracts\Console\Kernel')->bootstrap();
+if (!\DB::table('languages')->where('code', 'en')->exists()) {
+    \Artisan::call('db:seed', ['--class' => 'LanguageSeeder', '--force' => true]);
+    echo 'Languages seeded.' . PHP_EOL;
+} else {
+    echo 'Languages already exist, skipping.' . PHP_EOL;
+}
 if (!\App\Models\User::where('email', 'alice@test.com')->exists()) {
     \Artisan::call('db:seed', ['--class' => 'TestUsersSeeder', '--force' => true]);
     echo 'Test users seeded.' . PHP_EOL;
