@@ -14,9 +14,21 @@ echo "MySQL is ready!"
 # Run migrations
 php artisan migrate --force
 
-# Seed languages and test users (only if not already seeded)
+# Seed languages (only if not already seeded)
 php artisan db:seed --class=LanguageSeeder --force
-php artisan db:seed --class=TestUsersSeeder --force
+
+# Seed test users only if they don't exist yet
+php -r "
+require '/app/vendor/autoload.php';
+\$app = require '/app/bootstrap/app.php';
+\$app->make('Illuminate\Contracts\Console\Kernel')->bootstrap();
+if (!\App\Models\User::where('email', 'alice@test.com')->exists()) {
+    \Artisan::call('db:seed', ['--class' => 'TestUsersSeeder', '--force' => true]);
+    echo 'Test users seeded.' . PHP_EOL;
+} else {
+    echo 'Test users already exist, skipping.' . PHP_EOL;
+}
+"
 
 # Cache config and routes
 php artisan config:cache
